@@ -9,7 +9,7 @@ use bevy_ecs::{
 use bevy_trait_query::queryable;
 use thiserror::Error;
 
-use crate::sensor_state::SensorState;
+use crate::{Comparison, IdContainer, effect::EffectValue, sensor_state::SensorState};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum SensorValue {
@@ -25,6 +25,34 @@ impl From<bool> for SensorValue {
 #[queryable]
 pub trait WorldSensor: Any {
     fn sensor_value(&self) -> SensorValue;
+}
+
+pub trait SensorComparison: WorldSensor + Any {
+    fn equal<T>(value: T) -> IdContainer<TypeId, Comparison>
+    where
+        T: Into<SensorValue>,
+        Self: Sized,
+    {
+        IdContainer::new::<Self>(Comparison::Equal(value.into()))
+    }
+
+    fn not_equal<T>(value: T) -> IdContainer<TypeId, Comparison>
+    where
+        T: Into<SensorValue>,
+        Self: Sized,
+    {
+        IdContainer::new::<Self>(Comparison::NotEqual(value.into()))
+    }
+}
+
+pub trait SensorEffect: WorldSensor + Any {
+    fn set<T>(value: T) -> IdContainer<TypeId, EffectValue>
+    where
+        T: Into<SensorValue>,
+        Self: Sized,
+    {
+        IdContainer::new::<Self>(EffectValue::Set(value.into()))
+    }
 }
 
 #[derive(Error, Debug)]

@@ -4,15 +4,16 @@ use bevy_ecs::{
     component::{Component, ComponentId, Mutable, StorageType},
     lifecycle::HookContext,
     reflect::AppTypeRegistry,
-    world::DeferredWorld,
+    world::{DeferredWorld, World},
 };
 use bevy_reflect::{FromReflect, GetTypeRegistration, PartialReflect, Reflect, Typed};
 use bevy_trait_query::{RegisterExt, queryable};
 
 use crate::{
+    Comparison, IdContainer,
     current_action::{CurrentAction, CurrentActionTrait},
-    effects::{Effect, EffectValue},
-    prelude::Requirement,
+    effect::EffectValue,
+    id_container::ComponentNotFound,
     sensor_state::SensorState,
 };
 
@@ -35,7 +36,9 @@ pub fn on_insert_action_provider_builder<
     }: HookContext,
 ) {
     if let Some(action_provider_builder) = world.get::<ActionProviderBuilder<C>>(entity) {
-        let action_provider = action_provider_builder.build(&world);
+        let action_provider = action_provider_builder
+            .build(&world)
+            .expect("Could not build action provider");
         unsafe {
             world
                 .resource_mut::<AppTypeRegistry>()
@@ -57,25 +60,25 @@ pub fn on_insert_action_provider_builder<
 }
 
 #[derive(Clone, Default)]
-pub struct ActionProviderBuilder<C: Reflect> {
+pub struct ActionProviderBuilder<C> {
     pub action: C,
     pub cost: usize,
-    pub requirements: Vec<Requirement<TypeId>>,
-    pub effects: Vec<Effect<TypeId>>,
+    pub requirements: Vec<IdContainer<TypeId, Comparison>>,
+    pub effects: Vec<IdContainer<TypeId, EffectValue>>,
 }
 
-impl<C: Reflect> ActionProviderBuilder<C> {
+impl<C> ActionProviderBuilder<C> {
     pub fn with_cost(mut self, cost: usize) -> Self {
         self.cost = cost;
         self
     }
 
-    pub fn with_effect(mut self, effect: Effect<TypeId>) -> Self {
+    pub fn with_effect(mut self, effect: IdContainer<TypeId, EffectValue>) -> Self {
         self.effects.push(effect);
         self
     }
 
-    pub fn with_requirement(mut self, requirement: Requirement<TypeId>) -> Self {
+    pub fn with_requirement(mut self, requirement: IdContainer<TypeId, Comparison>) -> Self {
         self.requirements.push(requirement);
         self
     }
@@ -94,8 +97,11 @@ impl<C: Reflect + Clone + Typed + FromReflect + GetTypeRegistration> Component
 }
 
 impl<C: Reflect + Clone + Typed + FromReflect + GetTypeRegistration> ActionProviderBuilder<C> {
-    pub(crate) fn build(&self, world: &DeferredWorld) -> ActionProvider<CurrentAction<C>> {
-        ActionProvider {
+    pub(crate) fn build(
+        &self,
+        world: &World,
+    ) -> Result<ActionProvider<CurrentAction<C>>, ComponentNotFound> {
+        Ok(ActionProvider {
             cost: self.cost,
             action: CurrentAction {
                 action: self.action.clone(),
@@ -103,39 +109,27 @@ impl<C: Reflect + Clone + Typed + FromReflect + GetTypeRegistration> ActionProvi
             requirements: self
                 .requirements
                 .iter()
-                .map(|Requirement { id, comparison }| Requirement {
-                    id: world
-                        .components()
-                        .get_id(*id)
-                        .expect("Could not get requirement id"),
-                    comparison: comparison.clone(),
-                })
-                .collect(),
+                .map(|requirement| requirement.build(world))
+                .collect::<Result<Vec<_>, _>>()?,
             effects: self
                 .effects
                 .iter()
-                .map(|Effect { id, value }| Effect {
-                    id: world
-                        .components()
-                        .get_id(*id)
-                        .expect("Could not get component id"),
-                    value: value.clone(),
-                })
-                .collect(),
-        }
+                .map(|effect| effect.build(world))
+                .collect::<Result<Vec<_>, _>>()?,
+        })
     }
 }
 
 #[derive(Component, Clone)]
 #[require(SensorState)]
-pub struct ActionProvider<C: Reflect> {
+pub struct ActionProvider<C> {
     pub action: C,
     pub cost: usize,
-    pub requirements: Vec<Requirement<ComponentId>>,
-    pub effects: Vec<Effect<ComponentId>>,
+    pub requirements: Vec<IdContainer<ComponentId, Comparison>>,
+    pub effects: Vec<IdContainer<ComponentId, EffectValue>>,
 }
 
-impl<C: Reflect> ActionProvider<C> {
+impl<C> ActionProvider<C> {
     pub fn new(action: C) -> ActionProviderBuilder<C> {
         ActionProviderBuilder {
             action,
@@ -146,7 +140,7 @@ impl<C: Reflect> ActionProvider<C> {
     }
 }
 
-impl<C: Component + Reflect + Default> Default for ActionProvider<C> {
+impl<C: Default> Default for ActionProvider<C> {
     fn default() -> Self {
         Self {
             action: C::default(),
@@ -159,7 +153,7 @@ impl<C: Component + Reflect + Default> Default for ActionProvider<C> {
 
 impl<C: Reflect> ActionProviderTrait for ActionProvider<C> {
     fn apply(&self, sensor_values: &mut SensorState) {
-        for Effect {
+        for IdContainer {
             id,
             value: effect_value,
         } in self.effects.iter()
@@ -171,13 +165,9 @@ impl<C: Reflect> ActionProviderTrait for ActionProvider<C> {
     }
 
     fn preconditions_met(&self, sensor_values: &SensorState) -> bool {
-        self.requirements
-            .iter()
-            .all(|Requirement { id, comparison }| {
-                sensor_values
-                    .get(id)
-                    .map_or(false, |v| comparison.compare(*v))
-            })
+        self.requirements.iter().all(|IdContainer { id, value }| {
+            sensor_values.get(id).map_or(false, |v| value.compare(*v))
+        })
     }
 
     fn cost(&self) -> usize {

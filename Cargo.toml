@@ -3,19 +3,21 @@ name = "utility-goap"
 version = "0.1.0"
 edition = "2024"
 
+[workspace]
+members = ["crates/utility_goap_internal", "crates/utility_goap_macros"]
+
 [dependencies]
-bevy_app = { version = "0.18.0" }
-bevy_ecs = { version = "0.18.0" }
-bevy_reflect = { version = "0.18.0" }
-bevy-trait-query = "0.18.0"
-thiserror = "2.0.17"
+utility_goap_internal = { path = "crates/utility_goap_internal" }
+utility_goap_macros = { path = "crates/utility_goap_macros" }
 
 [dev-dependencies]
 bevy = { version = "0.18.0", default-features = false, features = [
     "2d",
     "debug",
 ] }
+bevy-trait-query = "0.18.0"
 
 [[example]]
 name = "basic"
 path = "examples/basic/main.rs"
+resolver = "3"

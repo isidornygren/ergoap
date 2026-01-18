@@ -63,7 +63,7 @@ pub(crate) fn despawn_current_actions(
     }
 }
 
-#[derive(Component, Reflect, Clone)]
+#[derive(Component, Reflect, Clone, Debug)]
 #[reflect(Component)]
 #[component(on_insert=on_insert_current_action)]
 pub struct CurrentAction<A: Reflect> {

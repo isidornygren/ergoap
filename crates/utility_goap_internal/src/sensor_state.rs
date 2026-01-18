@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use bevy_ecs::component::{Component, ComponentId};
 
-use crate::prelude::SensorValue;
+use crate::SensorValue;
 
 #[derive(Component, Debug, Default, PartialEq, Clone)]
 pub struct SensorState(pub(crate) HashMap<ComponentId, SensorValue>);
