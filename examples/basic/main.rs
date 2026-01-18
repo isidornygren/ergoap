@@ -17,8 +17,8 @@ impl WorldSensor for Sensor {
 
 struct TurnOffSensorAction;
 
-fn turn_off_sensor(query: Query<(&mut Sensor, &CurrentAction<TurnOffSensorAction>)>) {
-    for (mut sensor, current_action) in query {
+fn turn_off_sensor(query: Query<&mut Sensor, With<CurrentAction<TurnOffSensorAction>>>) {
+    for mut sensor in query {
         println!("Turned off sensor");
         sensor.active = false;
     }
