@@ -3,12 +3,14 @@ use std::any::TypeId;
 use bevy_ecs::{
     component::{Component, ComponentId, Mutable, StorageType},
     lifecycle::HookContext,
+    reflect::AppTypeRegistry,
     world::DeferredWorld,
 };
-use bevy_reflect::{PartialReflect, Reflect};
+use bevy_reflect::{FromReflect, GetTypeRegistration, PartialReflect, Reflect, Typed};
 use bevy_trait_query::{RegisterExt, queryable};
 
 use crate::{
+    current_action::{CurrentAction, CurrentActionTrait},
     effects::{Effect, EffectValue},
     prelude::Requirement,
     sensor_state::SensorState,
@@ -22,7 +24,9 @@ pub trait ActionProviderTrait {
     fn component(&self) -> &dyn PartialReflect;
 }
 
-pub fn on_insert_action_provider_builder<C: Component + Reflect + Clone>(
+pub fn on_insert_action_provider_builder<
+    C: Reflect + Clone + Typed + FromReflect + GetTypeRegistration,
+>(
     mut world: DeferredWorld,
     HookContext {
         entity,
@@ -34,9 +38,15 @@ pub fn on_insert_action_provider_builder<C: Component + Reflect + Clone>(
         let action_provider = action_provider_builder.build(&world);
         unsafe {
             world
+                .resource_mut::<AppTypeRegistry>()
+                .write()
+                .register::<CurrentAction<C>>();
+            world
                 .as_unsafe_world_cell()
                 .world_mut()
-                .register_component_as::<dyn ActionProviderTrait, ActionProvider<C>>();
+                .register_component_as::<dyn CurrentActionTrait, CurrentAction<C>>()
+                .register_component_as::<dyn ActionProviderTrait, ActionProvider<CurrentAction<C>>>(
+                );
         }
         world
             .commands()
@@ -47,14 +57,14 @@ pub fn on_insert_action_provider_builder<C: Component + Reflect + Clone>(
 }
 
 #[derive(Clone, Default)]
-pub struct ActionProviderBuilder<C: Component + Reflect> {
+pub struct ActionProviderBuilder<C: Reflect> {
     pub action: C,
     pub cost: usize,
     pub requirements: Vec<Requirement<TypeId>>,
     pub effects: Vec<Effect<TypeId>>,
 }
 
-impl<C: Component + Reflect> ActionProviderBuilder<C> {
+impl<C: Reflect> ActionProviderBuilder<C> {
     pub fn with_cost(mut self, cost: usize) -> Self {
         self.cost = cost;
         self
@@ -71,7 +81,9 @@ impl<C: Component + Reflect> ActionProviderBuilder<C> {
     }
 }
 
-impl<C: Component + Reflect + Clone> Component for ActionProviderBuilder<C> {
+impl<C: Reflect + Clone + Typed + FromReflect + GetTypeRegistration> Component
+    for ActionProviderBuilder<C>
+{
     const STORAGE_TYPE: StorageType = StorageType::Table;
 
     type Mutability = Mutable;
@@ -81,11 +93,13 @@ impl<C: Component + Reflect + Clone> Component for ActionProviderBuilder<C> {
     }
 }
 
-impl<C: Component + Reflect + Clone> ActionProviderBuilder<C> {
-    pub(crate) fn build(&self, world: &DeferredWorld) -> ActionProvider<C> {
+impl<C: Reflect + Clone + Typed + FromReflect + GetTypeRegistration> ActionProviderBuilder<C> {
+    pub(crate) fn build(&self, world: &DeferredWorld) -> ActionProvider<CurrentAction<C>> {
         ActionProvider {
             cost: self.cost,
-            action: self.action.clone(),
+            action: CurrentAction {
+                action: self.action.clone(),
+            },
             requirements: self
                 .requirements
                 .iter()
@@ -114,14 +128,14 @@ impl<C: Component + Reflect + Clone> ActionProviderBuilder<C> {
 
 #[derive(Component, Clone)]
 #[require(SensorState)]
-pub struct ActionProvider<C: Component + Reflect> {
+pub struct ActionProvider<C: Reflect> {
     pub action: C,
     pub cost: usize,
     pub requirements: Vec<Requirement<ComponentId>>,
     pub effects: Vec<Effect<ComponentId>>,
 }
 
-impl<C: Component + Reflect> ActionProvider<C> {
+impl<C: Reflect> ActionProvider<C> {
     pub fn new(action: C) -> ActionProviderBuilder<C> {
         ActionProviderBuilder {
             action,
@@ -143,7 +157,7 @@ impl<C: Component + Reflect + Default> Default for ActionProvider<C> {
     }
 }
 
-impl<C: Component + Reflect> ActionProviderTrait for ActionProvider<C> {
+impl<C: Reflect> ActionProviderTrait for ActionProvider<C> {
     fn apply(&self, sensor_values: &mut SensorState) {
         for Effect {
             id,

@@ -13,19 +13,14 @@ impl WorldSensor for Sensor {
     }
 }
 
-#[derive(Component, Reflect, Clone, Default)]
-#[reflect(Component)]
+#[derive(Reflect, Clone, Default)]
 
 struct TurnOffSensorAction;
 
-fn turn_off_sensor(
-    mut commands: Commands,
-    query: Query<(Entity, &mut Sensor), With<TurnOffSensorAction>>,
-) {
-    for (entity, mut sensor) in query {
+fn turn_off_sensor(query: Query<(&mut Sensor, &CurrentAction<TurnOffSensorAction>)>) {
+    for (mut sensor, current_action) in query {
         println!("Turned off sensor");
         sensor.active = false;
-        commands.entity(entity).remove::<TurnOffSensorAction>();
     }
 }
 

@@ -9,7 +9,8 @@ use bevy_ecs::{
 use bevy_reflect::PartialReflect;
 
 use crate::{
-    action_provider::ActionProviderTrait, astar::astar_plan, goal::Goal, sensor_state::SensorState,
+    action_provider::ActionProviderTrait, astar::astar_plan, current_action::DespawnCurrentActions,
+    goal::Goal, sensor_state::SensorState,
 };
 
 pub fn on_insert_plan(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
@@ -41,6 +42,11 @@ pub fn make_plan<'w>(
             actions.iter().map(|action| action.into_inner()).collect();
         if let Some(plan) = astar_plan(&sensor_values.to_owned(), dyn_actions, goal) {
             commands.entity(entity).insert(Plan(plan));
+        } else {
+            commands.write_message(DespawnCurrentActions {
+                entity: entity,
+                skip_component_id: None,
+            });
         }
     }
 }
