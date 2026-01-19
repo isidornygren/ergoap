@@ -155,7 +155,7 @@ impl<C: Reflect> ActionProviderTrait for ActionProvider<C> {
 
     fn preconditions_met(&self, sensor_values: &SensorState) -> bool {
         self.requirements.iter().all(|IdContainer { id, value }| {
-            sensor_values.get(id).map_or(false, |v| value.compare(*v))
+            sensor_values.get(id).map_or(false, |v| value.compare(v))
         })
     }
 

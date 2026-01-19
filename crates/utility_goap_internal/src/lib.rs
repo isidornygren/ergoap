@@ -25,7 +25,9 @@ pub use crate::comparison::Comparison;
 pub use crate::current_action::CurrentAction;
 pub use crate::goal::Goal;
 pub use crate::sensor_state::SensorState;
-pub use crate::world_sensor::{SensorComparison, SensorEffect, SensorValue, WorldSensor};
+pub use crate::world_sensor::{
+    SensorComparison, SensorEffect, SensorValue, WorldSensor, WorldSensorValue,
+};
 pub use auto_register::{AutomaticTraitRegistrations, RegisterComponentAs};
 
 pub mod __macro_exports {

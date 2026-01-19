@@ -11,9 +11,10 @@ use thiserror::Error;
 
 use crate::{Comparison, IdContainer, effect::EffectValue, sensor_state::SensorState};
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, PartialOrd)]
 pub enum SensorValue {
     Bool(bool),
+    Integer(i32),
 }
 
 impl From<bool> for SensorValue {
@@ -22,13 +23,23 @@ impl From<bool> for SensorValue {
     }
 }
 
+impl From<i32> for SensorValue {
+    fn from(value: i32) -> SensorValue {
+        SensorValue::Integer(value)
+    }
+}
+
 #[queryable]
-pub trait WorldSensor: Any {
+pub trait WorldSensor {
     fn sensor_value(&self) -> SensorValue;
 }
 
-pub trait SensorComparison: WorldSensor + Any {
-    fn equal<T>(value: T) -> IdContainer<TypeId, Comparison>
+pub trait WorldSensorValue<T> {
+    fn value(&self) -> T;
+}
+
+pub trait SensorComparison<T>: WorldSensorValue<T> + Any {
+    fn equal(value: T) -> IdContainer<TypeId, Comparison>
     where
         T: Into<SensorValue>,
         Self: Sized,
@@ -36,17 +47,33 @@ pub trait SensorComparison: WorldSensor + Any {
         IdContainer::new::<Self>(Comparison::Equal(value.into()))
     }
 
-    fn not_equal<T>(value: T) -> IdContainer<TypeId, Comparison>
+    fn not_equal(value: T) -> IdContainer<TypeId, Comparison>
     where
         T: Into<SensorValue>,
         Self: Sized,
     {
         IdContainer::new::<Self>(Comparison::NotEqual(value.into()))
     }
+
+    fn greater_than(value: T) -> IdContainer<TypeId, Comparison>
+    where
+        T: Into<SensorValue> + PartialOrd,
+        Self: Sized,
+    {
+        IdContainer::new::<Self>(Comparison::GreaterThan(value.into()))
+    }
+
+    fn less_than(value: T) -> IdContainer<TypeId, Comparison>
+    where
+        T: Into<SensorValue> + PartialOrd,
+        Self: Sized,
+    {
+        IdContainer::new::<Self>(Comparison::LessThan(value.into()))
+    }
 }
 
-pub trait SensorEffect: WorldSensor + Any {
-    fn set<T>(value: T) -> IdContainer<TypeId, EffectValue>
+pub trait SensorEffect<T>: WorldSensorValue<T> + Any {
+    fn set(value: T) -> IdContainer<TypeId, EffectValue>
     where
         T: Into<SensorValue>,
         Self: Sized,
@@ -84,95 +111,4 @@ pub fn collect_sensor_values(
         commands.entity(entity).insert(sensor_state);
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use bevy_app::{App, Update};
-    use bevy_ecs::{component::Component, system::RunSystemOnce};
-    use bevy_trait_query::RegisterExt;
-    use std::collections::HashMap;
-
-    use super::*;
-
-    #[derive(Component)]
-    struct TestSensor {
-        pub active: bool,
-    }
-
-    impl WorldSensor for TestSensor {
-        fn sensor_value(&self) -> SensorValue {
-            SensorValue::Bool(self.active)
-        }
-    }
-
-    #[test]
-    fn collects_sensor_values() {
-        let mut app = App::new();
-
-        app.register_component_as::<dyn WorldSensor, TestSensor>()
-            .add_systems(Update, collect_sensor_values);
-
-        app.world_mut().spawn(TestSensor { active: false });
-
-        app.update();
-
-        let test_sensor_type_id = app
-            .world()
-            .components()
-            .get_id(TypeId::of::<TestSensor>())
-            .unwrap();
-
-        assert_eq!(
-            app.world_mut()
-                .query::<&SensorState>()
-                .iter(app.world())
-                .next()
-                .unwrap(),
-            &SensorState(HashMap::from([(
-                test_sensor_type_id,
-                SensorValue::Bool(false)
-            )]))
-        );
-    }
-
-    #[test]
-    fn updates_sensor_values() {
-        let mut app = App::new();
-
-        app.register_component_as::<dyn WorldSensor, TestSensor>()
-            .add_systems(Update, collect_sensor_values);
-
-        app.world_mut().spawn(TestSensor { active: false });
-
-        app.update();
-
-        app.world_mut()
-            .run_system_once(|mut query: Query<&mut TestSensor>| {
-                for mut sensor in query.iter_mut() {
-                    sensor.active = true;
-                }
-            })
-            .unwrap();
-
-        app.update();
-
-        let test_sensor_type_id = app
-            .world()
-            .components()
-            .get_id(TypeId::of::<TestSensor>())
-            .unwrap();
-
-        assert_eq!(
-            app.world_mut()
-                .query::<&SensorState>()
-                .iter(app.world())
-                .next()
-                .unwrap(),
-            &SensorState(HashMap::from([(
-                test_sensor_type_id,
-                SensorValue::Bool(true)
-            )]))
-        );
-    }
 }

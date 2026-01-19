@@ -19,12 +19,20 @@ pub fn derive_world_sensor(input: TokenStream) -> TokenStream {
     let world_sensor_impl = match &input.data {
         Data::Struct(data) => match &data.fields {
             Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
+                let field_type = &fields.unnamed.first().unwrap().ty;
                 quote! {
                     impl WorldSensor for #name {
                         fn sensor_value(&self) -> SensorValue {
                             self.0.into()
                         }
                     }
+                    impl WorldSensorValue<#field_type> for #name {
+                        fn value(&self) -> #field_type {
+                            self.0
+                        }
+                    }
+                    impl SensorEffect<#field_type> for #name {}
+                    impl SensorComparison<#field_type> for #name {}
                 }
             }
             Fields::Named(fields) => {
@@ -39,6 +47,7 @@ pub fn derive_world_sensor(input: TokenStream) -> TokenStream {
                     .expect("No field marked with #[world_sensor] attribute found");
 
                 let field_name = field.ident.as_ref().unwrap();
+                let field_type = &field.ty;
 
                 quote! {
                     impl WorldSensor for #name {
@@ -46,6 +55,13 @@ pub fn derive_world_sensor(input: TokenStream) -> TokenStream {
                             self.#field_name.into()
                         }
                     }
+                    impl WorldSensorValue<#field_type> for #name {
+                        fn value(&self) -> #field_type {
+                            self.0
+                        }
+                    }
+                    impl SensorEffect<#field_type> for #name {}
+                    impl SensorComparison<#field_type> for #name {}
                 }
             }
             _ => panic!(
@@ -57,8 +73,6 @@ pub fn derive_world_sensor(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         #world_sensor_impl
-        impl SensorComparison for #name {}
-        impl SensorEffect for #name {}
         impl RegisterComponentAs for #name {
             fn __register_as(world: &mut #crate_path::__macro_exports::bevy_ecs::world::World) {
                 use #crate_path::__macro_exports::bevy_trait_query::RegisterExt;
