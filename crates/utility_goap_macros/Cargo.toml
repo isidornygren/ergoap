@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+proc-macro-crate = "3.4.0"
+proc-macro2 = "1.0.105"
 quote = "1.0.43"
 syn = "2.0.114"
 utility_goap_internal = { path = "../utility_goap_internal" }

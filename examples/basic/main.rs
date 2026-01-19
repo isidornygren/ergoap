@@ -1,16 +1,15 @@
 use bevy::prelude::*;
-use bevy_trait_query::RegisterExt;
 use utility_goap::prelude::*;
 
 #[derive(Component, WorldSensor)]
 struct Sensor(bool);
 
-#[derive(Reflect, Clone, Default, Debug)]
+#[derive(Clone, Reflect, Action)]
 struct TurnOffSensorAction;
 
 fn turn_off_sensor(query: Query<&mut Sensor, With<CurrentAction<TurnOffSensorAction>>>) {
     for mut sensor in query {
-        println!("Turned off sensor");
+        println!("Setting sensor state to false");
         sensor.0 = false;
     }
 }
@@ -30,7 +29,6 @@ pub fn main() {
     let mut app = App::new();
 
     app.add_plugins((DefaultPlugins, UtilityGoapPlugin))
-        .register_component_as::<dyn WorldSensor, Sensor>()
         .add_systems(Startup, spawn_actor)
         .add_systems(Update, turn_off_sensor);
 

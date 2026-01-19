@@ -15,7 +15,6 @@ bevy = { version = "0.18.0", default-features = false, features = [
     "2d",
     "debug",
 ] }
-bevy-trait-query = "0.18.0"
 
 [[example]]
 name = "basic"

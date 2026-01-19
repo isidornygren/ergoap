@@ -7,14 +7,11 @@ use bevy_ecs::{
     world::{DeferredWorld, World},
 };
 use bevy_reflect::{FromReflect, GetTypeRegistration, PartialReflect, Reflect, Typed};
-use bevy_trait_query::{RegisterExt, queryable};
+use bevy_trait_query::queryable;
 
 use crate::{
-    Comparison, IdContainer,
-    current_action::{CurrentAction, CurrentActionTrait},
-    effect::EffectValue,
-    id_container::ComponentNotFound,
-    sensor_state::SensorState,
+    Comparison, IdContainer, current_action::CurrentAction, effect::EffectValue,
+    id_container::ComponentNotFound, sensor_state::SensorState,
 };
 
 #[queryable]
@@ -39,18 +36,10 @@ pub fn on_insert_action_provider_builder<
         let action_provider = action_provider_builder
             .build(&world)
             .expect("Could not build action provider");
-        unsafe {
-            world
-                .resource_mut::<AppTypeRegistry>()
-                .write()
-                .register::<CurrentAction<C>>();
-            world
-                .as_unsafe_world_cell()
-                .world_mut()
-                .register_component_as::<dyn CurrentActionTrait, CurrentAction<C>>()
-                .register_component_as::<dyn ActionProviderTrait, ActionProvider<CurrentAction<C>>>(
-                );
-        }
+        world
+            .resource_mut::<AppTypeRegistry>()
+            .write()
+            .register::<CurrentAction<C>>();
         world
             .commands()
             .entity(entity)
@@ -122,14 +111,14 @@ impl<C: Reflect + Clone + Typed + FromReflect + GetTypeRegistration> ActionProvi
 
 #[derive(Component, Clone)]
 #[require(SensorState)]
-pub struct ActionProvider<C> {
+pub struct ActionProvider<C: Reflect> {
     pub action: C,
     pub cost: usize,
     pub requirements: Vec<IdContainer<ComponentId, Comparison>>,
     pub effects: Vec<IdContainer<ComponentId, EffectValue>>,
 }
 
-impl<C> ActionProvider<C> {
+impl<C: Reflect> ActionProvider<C> {
     pub fn new(action: C) -> ActionProviderBuilder<C> {
         ActionProviderBuilder {
             action,
@@ -140,7 +129,7 @@ impl<C> ActionProvider<C> {
     }
 }
 
-impl<C: Default> Default for ActionProvider<C> {
+impl<C: Default + Reflect> Default for ActionProvider<C> {
     fn default() -> Self {
         Self {
             action: C::default(),

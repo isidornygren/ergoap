@@ -4527,7 +4527,6 @@ name = "utility-goap"
 version = "0.1.0"
 dependencies = [
  "bevy",
- "bevy-trait-query",
  "utility_goap_internal",
  "utility_goap_macros",
 ]
@@ -4540,6 +4539,7 @@ dependencies = [
  "bevy_app",
  "bevy_ecs",
  "bevy_reflect",
+ "inventory",
  "thiserror 2.0.17",
 ]
 
@@ -4547,6 +4547,8 @@ dependencies = [
 name = "utility_goap_macros"
 version = "0.1.0"
 dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
  "quote",
  "syn",
  "utility_goap_internal",
