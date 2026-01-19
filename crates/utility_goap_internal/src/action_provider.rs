@@ -10,8 +10,8 @@ use bevy_reflect::{FromReflect, GetTypeRegistration, PartialReflect, Reflect, Ty
 use bevy_trait_query::queryable;
 
 use crate::{
-    Comparison, IdContainer, current_action::CurrentAction, effect::EffectValue,
-    id_container::ComponentNotFound, sensor_state::SensorState,
+    Comparison, IdContainer, RegisterComponentAs, current_action::CurrentAction,
+    effect::EffectValue, id_container::ComponentNotFound, sensor_state::SensorState,
 };
 
 #[queryable]
@@ -118,7 +118,7 @@ pub struct ActionProvider<C: Reflect> {
     pub effects: Vec<IdContainer<ComponentId, EffectValue>>,
 }
 
-impl<C: Reflect> ActionProvider<C> {
+impl<C: Reflect + Clone + RegisterComponentAs> ActionProvider<C> {
     pub fn new(action: C) -> ActionProviderBuilder<C> {
         ActionProviderBuilder {
             action,
