@@ -1,6 +1,7 @@
 use std::any::{Any, TypeId};
 
 use bevy_ecs::{
+    change_detection::DetectChanges,
     entity::Entity,
     error::Result,
     system::{Commands, Query},
@@ -30,7 +31,7 @@ impl From<i32> for SensorValue {
 }
 
 #[queryable]
-pub trait WorldSensor {
+pub trait WorldSensor: Any {
     fn sensor_value(&self) -> SensorValue;
 }
 
@@ -93,10 +94,14 @@ pub fn collect_sensor_values(
     query: Query<(Entity, &dyn WorldSensor)>,
     world: &World,
 ) -> Result {
-    for (entity, entity_sensors) in query.into_iter() {
+    for (entity, entity_sensors) in &query {
         let mut sensor_state = SensorState::new();
+        let mut has_changed = false;
 
         for sensor in entity_sensors {
+            if sensor.is_changed() {
+                has_changed = true;
+            }
             let value = sensor.sensor_value();
             let type_id = (*sensor).type_id();
 
@@ -108,7 +113,9 @@ pub fn collect_sensor_values(
             sensor_state.insert(id, value);
         }
 
-        commands.entity(entity).insert(sensor_state);
+        if has_changed {
+            commands.entity(entity).insert(sensor_state);
+        }
     }
     Ok(())
 }

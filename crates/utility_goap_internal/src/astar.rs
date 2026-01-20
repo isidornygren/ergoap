@@ -1,28 +1,16 @@
-use bevy_reflect::PartialReflect;
-
 use crate::{action_provider::ActionProviderTrait, goal::Goal, sensor_state::SensorState};
 use std::{
     cmp::Ordering,
     collections::{BinaryHeap, HashSet},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Node {
     state: SensorState,
-    actions: Vec<Box<dyn PartialReflect>>,
+    parent_index: Option<usize>,
+    action_taken: Option<usize>,
     goal_cost: usize,
     heuristic_cost: usize,
-}
-
-impl Clone for Node {
-    fn clone(&self) -> Self {
-        Self {
-            state: self.state.clone(),
-            actions: self.actions.iter().map(|a| a.to_dynamic()).collect(),
-            goal_cost: self.goal_cost,
-            heuristic_cost: self.heuristic_cost,
-        }
-    }
 }
 
 impl Node {
@@ -63,64 +51,83 @@ fn calculate_hash<T: std::hash::Hash>(t: &T) -> u64 {
     hasher.finish()
 }
 
+fn reconstruct_path(nodes: &[Node], goal_index: usize) -> Vec<usize> {
+    let mut path = Vec::new();
+    let mut current_index = Some(goal_index);
+
+    while let Some(index) = current_index {
+        let node = &nodes[index];
+        if let Some(action) = node.action_taken {
+            path.push(action);
+        }
+        current_index = node.parent_index;
+    }
+
+    path.reverse();
+    path
+}
+
 pub(crate) fn astar_plan(
     start_state: &SensorState,
-    actions: Vec<&dyn ActionProviderTrait>,
+    actions: &Vec<&dyn ActionProviderTrait>,
     goal: &Goal,
-) -> Option<Vec<Box<dyn PartialReflect>>> {
+) -> Option<Vec<usize>> {
     let mut open_set = BinaryHeap::with_capacity(actions.len());
     let mut closed_set = HashSet::with_capacity(actions.len());
+    let mut all_nodes = Vec::new();
 
     let start_node = Node {
         state: start_state.clone(),
-        actions: Vec::new(),
+        parent_index: None,
+        action_taken: None,
         goal_cost: 0,
         heuristic_cost: goal.distance(start_state),
     };
 
-    open_set.push(start_node);
+    all_nodes.push(start_node.clone());
+    open_set.push((0, 0));
 
-    while let Some(current) = open_set.pop() {
-        if goal.is_satisfied(&current.state) {
-            return if current.actions.is_empty() {
-                None
-            } else {
-                Some(current.actions)
-            };
+    let mut open_set = BinaryHeap::with_capacity(actions.len());
+    open_set.push((std::cmp::Reverse(all_nodes[0].cost()), 0));
+
+    while let Some((_, current_index)) = open_set.pop() {
+        if goal.is_satisfied(&all_nodes[current_index].state) {
+            let path = reconstruct_path(&all_nodes, current_index);
+            return if path.is_empty() { None } else { Some(path) };
         }
 
-        let state_hash = calculate_hash(&current.state);
+        let state_hash = calculate_hash(&all_nodes[current_index].state);
         if closed_set.contains(&state_hash) {
             continue;
         }
         closed_set.insert(state_hash);
 
-        for action in actions.iter() {
-            if !action.preconditions_met(&current.state) {
+        for (action_index, action) in actions.iter().enumerate() {
+            if !action.preconditions_met(&all_nodes[current_index].state) {
                 continue;
             }
 
-            let mut new_state = current.state.clone();
+            let mut new_state = all_nodes[current_index].state.clone();
             action.apply(&mut new_state);
 
             let new_state_hash = calculate_hash(&new_state);
             if closed_set.contains(&new_state_hash) {
                 continue;
             }
+            let heuristic_cost = goal.distance(&new_state);
 
-            let mut new_actions = current
-                .actions
-                .iter()
-                .map(|action| action.to_dynamic())
-                .collect::<Vec<_>>();
-            new_actions.push(action.component().to_dynamic());
-
-            open_set.push(Node {
-                heuristic_cost: goal.distance(&new_state),
+            let new_node = Node {
                 state: new_state,
-                actions: new_actions,
-                goal_cost: current.goal_cost + action.cost(),
-            });
+                parent_index: Some(current_index),
+                action_taken: Some(action_index),
+                goal_cost: all_nodes[current_index].goal_cost + action.cost(),
+                heuristic_cost,
+            };
+
+            let new_cost = new_node.cost();
+            let new_index = all_nodes.len();
+            all_nodes.push(new_node);
+            open_set.push((std::cmp::Reverse(new_cost), new_index));
         }
     }
 

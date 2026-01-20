@@ -2,6 +2,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     lifecycle::HookContext,
+    query::Changed,
     reflect::ReflectCommandExt,
     system::{Commands, Query},
     world::DeferredWorld,
@@ -15,8 +16,8 @@ use crate::{
 
 pub fn on_insert_plan(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
     if let Some(first_action) = world
-        .get::<Plan>(entity)
-        .and_then(|plan| plan.actions().first())
+        .get_mut::<Plan>(entity)
+        .and_then(|mut plan| plan.0.pop())
         .map(|action| action.to_dynamic())
     {
         world.commands().entity(entity).insert_reflect(first_action);
@@ -27,21 +28,20 @@ pub fn on_insert_plan(mut world: DeferredWorld, HookContext { entity, .. }: Hook
 #[component(on_insert=on_insert_plan)]
 pub struct Plan(Vec<Box<dyn PartialReflect>>);
 
-impl Plan {
-    pub fn actions(&self) -> &Vec<Box<dyn PartialReflect>> {
-        &self.0
-    }
-}
-
 pub fn make_plan<'w>(
     mut commands: Commands,
-    query: Query<(Entity, &SensorState, &dyn ActionProviderTrait, &Goal)>,
+    query: Query<(Entity, &SensorState, &dyn ActionProviderTrait, &Goal), Changed<SensorState>>,
 ) {
     for (entity, sensor_values, actions, goal) in query.iter() {
         let dyn_actions: Vec<&dyn ActionProviderTrait> =
             actions.iter().map(|action| action.into_inner()).collect();
-        if let Some(plan) = astar_plan(&sensor_values.to_owned(), dyn_actions, goal) {
-            commands.entity(entity).insert(Plan(plan));
+        if let Some(plan) = astar_plan(&sensor_values.to_owned(), &dyn_actions, goal) {
+            commands.entity(entity).insert(Plan(
+                plan.into_iter()
+                    .filter_map(|index| dyn_actions.get(index))
+                    .map(|action| action.component().to_dynamic())
+                    .collect(),
+            ));
         } else {
             commands.entity(entity).despawn_current_action();
         }
