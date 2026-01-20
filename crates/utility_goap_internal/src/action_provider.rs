@@ -1,3 +1,5 @@
+#[cfg(feature = "target")]
+use std::any::Any;
 use std::any::TypeId;
 
 use bevy_ecs::{
@@ -48,12 +50,14 @@ pub fn on_insert_action_provider_builder<
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct ActionProviderBuilder<C> {
     pub action: C,
     pub cost: usize,
     pub requirements: Vec<IdContainer<TypeId, Comparison>>,
     pub effects: Vec<IdContainer<TypeId, EffectValue>>,
+    #[cfg(feature = "target")]
+    pub target: Option<TypeId>,
 }
 
 impl<C> ActionProviderBuilder<C> {
@@ -69,6 +73,12 @@ impl<C> ActionProviderBuilder<C> {
 
     pub fn with_requirement(mut self, requirement: IdContainer<TypeId, Comparison>) -> Self {
         self.requirements.push(requirement);
+        self
+    }
+
+    #[cfg(feature = "target")]
+    pub fn with_target<T: Any>(mut self) -> Self {
+        self.target = Some(TypeId::of::<T>());
         self
     }
 }
@@ -105,6 +115,16 @@ impl<C: Reflect + Clone + Typed + FromReflect + GetTypeRegistration> ActionProvi
                 .iter()
                 .map(|effect| effect.build(world))
                 .collect::<Result<Vec<_>, _>>()?,
+            #[cfg(feature = "target")]
+            target: match self.target {
+                Some(target) => Some(
+                    world
+                        .components()
+                        .get_id(target)
+                        .ok_or(ComponentNotFound(target))?,
+                ),
+                None => None,
+            },
         })
     }
 }
@@ -116,6 +136,8 @@ pub struct ActionProvider<C: Reflect> {
     pub cost: usize,
     pub requirements: Vec<IdContainer<ComponentId, Comparison>>,
     pub effects: Vec<IdContainer<ComponentId, EffectValue>>,
+    #[cfg(feature = "target")]
+    pub target: Option<ComponentId>,
 }
 
 impl<C: Reflect + Clone + RegisterComponentAs> ActionProvider<C> {
@@ -125,17 +147,8 @@ impl<C: Reflect + Clone + RegisterComponentAs> ActionProvider<C> {
             cost: 1,
             requirements: vec![],
             effects: vec![],
-        }
-    }
-}
-
-impl<C: Default + Reflect> Default for ActionProvider<C> {
-    fn default() -> Self {
-        Self {
-            action: C::default(),
-            cost: 1,
-            requirements: vec![],
-            effects: vec![],
+            #[cfg(feature = "target")]
+            target: None,
         }
     }
 }

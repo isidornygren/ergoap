@@ -4,6 +4,9 @@ use utility_goap::prelude::*;
 #[derive(Component, WorldSensor)]
 struct Sensor(bool);
 
+#[derive(Component, TargetSensor)]
+struct ClosestTarget(Option<Entity>);
+
 #[derive(Clone, Reflect, Action)]
 struct TurnOffSensorAction;
 
@@ -21,6 +24,7 @@ fn spawn_actor(mut commands: Commands) {
         ActionProvider::new(TurnOffSensorAction)
             .with_effect(Sensor::set(false))
             .with_requirement(Sensor::equal(true))
+            .with_target::<ClosestTarget>()
             .with_cost(1),
     ));
 }

@@ -20,3 +20,8 @@ bevy = { version = "0.18.0", default-features = false, features = [
 name = "basic"
 path = "examples/basic/main.rs"
 resolver = "3"
+required-features = ["target"]
+
+[features]
+default = ["target"]
+target = ["utility_goap_internal/target"]
