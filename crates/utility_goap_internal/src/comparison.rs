@@ -13,8 +13,8 @@ impl Comparison {
         match self {
             Self::Equal(v) => *v == *value,
             Self::NotEqual(v) => *v != *value,
-            Self::GreaterThan(v) => *v > *value,
-            Self::LessThan(v) => *v < *value,
+            Self::GreaterThan(v) => *v < *value,
+            Self::LessThan(v) => *v > *value,
         }
     }
 }

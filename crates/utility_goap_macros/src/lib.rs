@@ -57,7 +57,7 @@ pub fn derive_world_sensor(input: TokenStream) -> TokenStream {
                     }
                     impl WorldSensorValue<#field_type> for #name {
                         fn value(&self) -> #field_type {
-                            self.0
+                            self.#field_name
                         }
                     }
                     impl SensorEffect<#field_type> for #name {}

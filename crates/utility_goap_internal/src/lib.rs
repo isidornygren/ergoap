@@ -1,4 +1,4 @@
-use bevy_app::{App, First, Plugin, PostUpdate};
+use bevy_app::{App, First, FixedPostUpdate, Plugin};
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::world::World;
 use plan::make_plan;
@@ -40,7 +40,7 @@ pub struct UtilityGoapPlugin;
 
 impl Plugin for UtilityGoapPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PostUpdate, (collect_sensor_values, make_plan).chain())
+        app.add_systems(FixedPostUpdate, (collect_sensor_values, make_plan).chain())
             .add_systems(First, |world: &mut World| register_trait_types(world));
     }
 }

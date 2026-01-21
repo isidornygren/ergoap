@@ -1,3 +1,5 @@
+use std::ops::{Deref, DerefMut};
+
 use bevy_ecs::{
     component::{Component, ComponentId},
     lifecycle::HookContext,
@@ -43,6 +45,20 @@ pub struct CurrentActionRef(ComponentId);
 #[component(on_insert=on_insert_current_action)]
 pub struct CurrentAction<A> {
     pub(crate) action: A,
+}
+
+impl<A> Deref for CurrentAction<A> {
+    type Target = A;
+
+    fn deref(&self) -> &Self::Target {
+        &self.action
+    }
+}
+
+impl<A> DerefMut for CurrentAction<A> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.action
+    }
 }
 
 pub trait CurrentActionCommands {
