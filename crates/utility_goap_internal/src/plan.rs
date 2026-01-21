@@ -36,14 +36,21 @@ pub fn make_plan<'w>(
         let dyn_actions: Vec<&dyn ActionProviderTrait> =
             actions.iter().map(|action| action.into_inner()).collect();
         if let Some(plan) = astar_plan(&sensor_values.to_owned(), &dyn_actions, goal) {
-            commands.entity(entity).insert(Plan(
-                plan.into_iter()
-                    .filter_map(|index| dyn_actions.get(index))
-                    .map(|action| action.component().to_dynamic())
-                    .collect(),
-            ));
+            println!("Plan ({:?}): {:?}", entity, plan);
+            let plan_actions = plan
+                .into_iter()
+                .filter_map(|index| dyn_actions.get(index))
+                .map(|action| action.component().to_dynamic())
+                .rev()
+                .collect();
+
+            commands.entity(entity).insert(Plan(plan_actions));
         } else {
-            commands.entity(entity).despawn_current_action();
+            println!("No plan, remove plan: {:?}", entity);
+            commands
+                .entity(entity)
+                .remove::<Plan>()
+                .despawn_current_action();
         }
     }
 }

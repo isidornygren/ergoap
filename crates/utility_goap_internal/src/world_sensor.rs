@@ -1,21 +1,44 @@
-use std::any::{Any, TypeId};
+use std::{
+    any::{Any, TypeId},
+    hash::Hasher,
+};
 
 use bevy_ecs::{
     change_detection::DetectChanges,
+    component::Components,
     entity::Entity,
     error::Result,
     system::{Commands, Query},
-    world::World,
 };
 use bevy_trait_query::queryable;
 use thiserror::Error;
 
 use crate::{Comparison, IdContainer, effect::EffectValue, sensor_state::SensorState};
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, PartialOrd)]
+#[derive(Debug, PartialEq, Clone, Copy, PartialOrd)]
 pub enum SensorValue {
     Bool(bool),
     Integer(i32),
+    Float(f32),
+}
+
+impl std::hash::Hash for SensorValue {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            SensorValue::Bool(b) => {
+                0u8.hash(state);
+                b.hash(state);
+            }
+            SensorValue::Integer(i) => {
+                1u8.hash(state);
+                i.hash(state);
+            }
+            SensorValue::Float(f) => {
+                2u8.hash(state);
+                f.to_bits().hash(state);
+            }
+        }
+    }
 }
 
 impl From<bool> for SensorValue {
@@ -27,6 +50,12 @@ impl From<bool> for SensorValue {
 impl From<i32> for SensorValue {
     fn from(value: i32) -> SensorValue {
         SensorValue::Integer(value)
+    }
+}
+
+impl From<f32> for SensorValue {
+    fn from(value: f32) -> SensorValue {
+        SensorValue::Float(value)
     }
 }
 
@@ -92,7 +121,7 @@ pub enum CollectSensorValuesError {
 pub fn collect_sensor_values(
     mut commands: Commands,
     query: Query<(Entity, &dyn WorldSensor)>,
-    world: &World,
+    components: &Components,
 ) -> Result {
     for (entity, entity_sensors) in &query {
         let mut sensor_state = SensorState::new();
@@ -105,8 +134,7 @@ pub fn collect_sensor_values(
             let value = sensor.sensor_value();
             let type_id = (*sensor).type_id();
 
-            let id = world
-                .components()
+            let id = components
                 .get_id(type_id)
                 .ok_or(CollectSensorValuesError::ComponentIdNotFound { type_id, entity })?;
 
