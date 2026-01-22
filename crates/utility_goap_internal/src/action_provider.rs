@@ -11,6 +11,8 @@ use bevy_ecs::{
 use bevy_reflect::{FromReflect, GetTypeRegistration, PartialReflect, Reflect, Typed};
 use bevy_trait_query::queryable;
 
+#[cfg(feature = "target")]
+use crate::target::TargetConfig;
 use crate::{
     Comparison, IdContainer, RegisterComponentAs, current_action::CurrentAction,
     effect::EffectValue, id_container::ComponentNotFound, sensor_state::SensorState,
@@ -24,7 +26,7 @@ pub trait ActionProviderTrait: Send + Sync {
     fn component(&self) -> &dyn PartialReflect;
     fn clone_box(&self) -> Box<dyn ActionProviderTrait>;
     #[cfg(feature = "target")]
-    fn target(&self) -> &Option<ComponentId>;
+    fn target(&self) -> &Option<IdContainer<ComponentId, TargetConfig>>;
 }
 
 pub fn on_insert_action_provider_builder<C: Clone + Typed + FromReflect + GetTypeRegistration>(
@@ -58,7 +60,7 @@ pub struct ActionProviderBuilder<C> {
     pub requirements: Vec<IdContainer<TypeId, Comparison>>,
     pub effects: Vec<IdContainer<TypeId, EffectValue>>,
     #[cfg(feature = "target")]
-    pub target: Option<TypeId>,
+    pub target: Option<IdContainer<TypeId, TargetConfig>>,
 }
 
 impl<C> ActionProviderBuilder<C> {
@@ -78,8 +80,11 @@ impl<C> ActionProviderBuilder<C> {
     }
 
     #[cfg(feature = "target")]
-    pub fn with_target<T: Any>(mut self) -> Self {
-        self.target = Some(TypeId::of::<T>());
+    pub fn with_target<T: Any>(mut self, target_config: TargetConfig) -> Self {
+        self.target = Some(IdContainer {
+            value: target_config,
+            id: TypeId::of::<T>(),
+        });
         self
     }
 }
@@ -115,13 +120,8 @@ impl<C: Clone + Typed + FromReflect + GetTypeRegistration> ActionProviderBuilder
                 .map(|effect| effect.build(world))
                 .collect::<Result<Vec<_>, _>>()?,
             #[cfg(feature = "target")]
-            target: match self.target {
-                Some(target) => Some(
-                    world
-                        .components()
-                        .get_id(target)
-                        .ok_or(ComponentNotFound(target))?,
-                ),
+            target: match &self.target {
+                Some(target) => Some(target.build(world)?),
                 None => None,
             },
         })
@@ -136,7 +136,7 @@ pub struct ActionProvider<C: Reflect> {
     pub requirements: Vec<IdContainer<ComponentId, Comparison>>,
     pub effects: Vec<IdContainer<ComponentId, EffectValue>>,
     #[cfg(feature = "target")]
-    pub target: Option<ComponentId>,
+    pub target: Option<IdContainer<ComponentId, TargetConfig>>,
 }
 
 impl<C: Reflect + Clone + RegisterComponentAs> ActionProvider<C> {
@@ -167,8 +167,11 @@ impl<C: Reflect + Clone> ActionProviderTrait for ActionProvider<C> {
 
     fn preconditions_met(&self, sensor_values: &SensorState) -> bool {
         #[cfg(feature = "target")]
-        if let Some(target) = self.target {
-            if sensor_values.get(&target).is_none_or(|v| !v.has_target()) {
+        if let Some(target) = &self.target {
+            if sensor_values
+                .get(&target.id)
+                .is_none_or(|v| !v.has_target())
+            {
                 return false;
             }
         }
@@ -187,7 +190,7 @@ impl<C: Reflect + Clone> ActionProviderTrait for ActionProvider<C> {
         Box::new(self.clone())
     }
     #[cfg(feature = "target")]
-    fn target(&self) -> &Option<ComponentId> {
+    fn target(&self) -> &Option<IdContainer<ComponentId, TargetConfig>> {
         &self.target
     }
 }

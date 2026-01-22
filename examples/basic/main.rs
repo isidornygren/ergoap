@@ -157,12 +157,12 @@ fn actor_bundle(
             .with_effect(LampSensor::set(lamp_value))
             .with_requirement(IsHungry::equal(false))
             .with_requirement(LampSensor::equal(!lamp_value))
-            .with_target::<LampTarget>()
+            .with_target::<LampTarget>(TargetConfig::Proximity)
             .with_cost(1),
         ActionProvider::new(EatFoodAction)
             .with_effect(IsHungry::set(false))
             .with_requirement(IsHungry::equal(true))
-            .with_target::<FoodTarget>()
+            .with_target::<FoodTarget>(TargetConfig::Proximity)
             .with_cost(1),
         Transform::from_translation(position),
         Mesh2d(mesh),

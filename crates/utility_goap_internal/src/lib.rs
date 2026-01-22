@@ -38,7 +38,7 @@ pub use crate::world_sensor::{
 };
 pub use auto_register::{AutomaticTraitRegistrations, RegisterComponentAs};
 #[cfg(feature = "target")]
-pub use target::GotoTarget;
+pub use target::{GotoTarget, TargetConfig};
 
 pub mod __macro_exports {
     pub use bevy_ecs;
