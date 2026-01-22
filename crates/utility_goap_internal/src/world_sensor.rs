@@ -1,10 +1,6 @@
-use std::{
-    any::{Any, TypeId},
-    hash::Hasher,
-};
+use std::any::{Any, TypeId};
 
 use bevy_ecs::{
-    change_detection::DetectChanges,
     component::Components,
     entity::Entity,
     error::Result,
@@ -15,28 +11,33 @@ use thiserror::Error;
 
 use crate::{Comparison, IdContainer, effect::EffectValue, sensor_state::SensorState};
 
-#[derive(Debug, PartialEq, Clone, Copy, PartialOrd)]
-pub enum SensorValue {
-    Bool(bool),
-    Integer(i32),
-    Float(f32),
+#[cfg(feature = "target")]
+#[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Hash)]
+pub struct TargetValue {
+    pub entity: Entity,
+    pub is_close: bool,
 }
 
-impl std::hash::Hash for SensorValue {
-    fn hash<H: Hasher>(&self, state: &mut H) {
+#[derive(Debug, PartialEq, Clone, Hash, Copy, PartialOrd)]
+pub enum SensorValue {
+    Bool(bool),
+    #[cfg(feature = "target")]
+    Target(Option<TargetValue>),
+}
+
+#[cfg(feature = "target")]
+impl SensorValue {
+    pub fn has_target(&self) -> bool {
         match self {
-            SensorValue::Bool(b) => {
-                0u8.hash(state);
-                b.hash(state);
-            }
-            SensorValue::Integer(i) => {
-                1u8.hash(state);
-                i.hash(state);
-            }
-            SensorValue::Float(f) => {
-                2u8.hash(state);
-                f.to_bits().hash(state);
-            }
+            Self::Target(v) => v.is_some(),
+            _ => false,
+        }
+    }
+
+    pub fn is_close(&self) -> bool {
+        match self {
+            Self::Target(Some(v)) => v.is_close,
+            _ => false,
         }
     }
 }
@@ -47,15 +48,17 @@ impl From<bool> for SensorValue {
     }
 }
 
-impl From<i32> for SensorValue {
-    fn from(value: i32) -> SensorValue {
-        SensorValue::Integer(value)
+#[cfg(feature = "target")]
+impl From<Option<TargetValue>> for SensorValue {
+    fn from(value: Option<TargetValue>) -> SensorValue {
+        SensorValue::Target(value)
     }
 }
 
-impl From<f32> for SensorValue {
-    fn from(value: f32) -> SensorValue {
-        SensorValue::Float(value)
+#[cfg(feature = "target")]
+impl From<TargetValue> for SensorValue {
+    fn from(value: TargetValue) -> SensorValue {
+        SensorValue::Target(Some(value))
     }
 }
 
@@ -66,6 +69,7 @@ pub trait WorldSensor: Any {
 
 pub trait WorldSensorValue<T> {
     fn value(&self) -> T;
+    fn set_value(&mut self, value: impl Into<T>);
 }
 
 pub trait SensorComparison<T>: WorldSensorValue<T> + Any {
@@ -120,17 +124,13 @@ pub enum CollectSensorValuesError {
 
 pub fn collect_sensor_values(
     mut commands: Commands,
-    query: Query<(Entity, &dyn WorldSensor)>,
+    query: Query<(Entity, &dyn WorldSensor, Option<&SensorState>)>,
     components: &Components,
 ) -> Result {
-    for (entity, entity_sensors) in &query {
+    for (entity, entity_sensors, maybe_previous_state) in &query {
         let mut sensor_state = SensorState::new();
-        let mut has_changed = false;
 
         for sensor in entity_sensors {
-            if sensor.is_changed() {
-                has_changed = true;
-            }
             let value = sensor.sensor_value();
             let type_id = (*sensor).type_id();
 
@@ -141,7 +141,7 @@ pub fn collect_sensor_values(
             sensor_state.insert(id, value);
         }
 
-        if has_changed {
+        if maybe_previous_state.is_none_or(|previous_state| *previous_state != sensor_state) {
             commands.entity(entity).insert(sensor_state);
         }
     }

@@ -17,16 +17,17 @@ use crate::{
 };
 
 #[queryable]
-pub trait ActionProviderTrait {
+pub trait ActionProviderTrait: Send + Sync {
     fn apply(&self, sensor_values: &mut SensorState);
     fn preconditions_met(&self, _sensor_values: &SensorState) -> bool;
     fn cost(&self) -> usize;
     fn component(&self) -> &dyn PartialReflect;
+    fn clone_box(&self) -> Box<dyn ActionProviderTrait>;
+    #[cfg(feature = "target")]
+    fn target(&self) -> &Option<ComponentId>;
 }
 
-pub fn on_insert_action_provider_builder<
-    C: Reflect + Clone + Typed + FromReflect + GetTypeRegistration,
->(
+pub fn on_insert_action_provider_builder<C: Clone + Typed + FromReflect + GetTypeRegistration>(
     mut world: DeferredWorld,
     HookContext {
         entity,
@@ -83,9 +84,7 @@ impl<C> ActionProviderBuilder<C> {
     }
 }
 
-impl<C: Reflect + Clone + Typed + FromReflect + GetTypeRegistration> Component
-    for ActionProviderBuilder<C>
-{
+impl<C: Clone + Typed + FromReflect + GetTypeRegistration> Component for ActionProviderBuilder<C> {
     const STORAGE_TYPE: StorageType = StorageType::Table;
 
     type Mutability = Mutable;
@@ -95,7 +94,7 @@ impl<C: Reflect + Clone + Typed + FromReflect + GetTypeRegistration> Component
     }
 }
 
-impl<C: Reflect + Clone + Typed + FromReflect + GetTypeRegistration> ActionProviderBuilder<C> {
+impl<C: Clone + Typed + FromReflect + GetTypeRegistration> ActionProviderBuilder<C> {
     pub(crate) fn build(
         &self,
         world: &World,
@@ -153,7 +152,7 @@ impl<C: Reflect + Clone + RegisterComponentAs> ActionProvider<C> {
     }
 }
 
-impl<C: Reflect> ActionProviderTrait for ActionProvider<C> {
+impl<C: Reflect + Clone> ActionProviderTrait for ActionProvider<C> {
     fn apply(&self, sensor_values: &mut SensorState) {
         for IdContainer {
             id,
@@ -167,6 +166,12 @@ impl<C: Reflect> ActionProviderTrait for ActionProvider<C> {
     }
 
     fn preconditions_met(&self, sensor_values: &SensorState) -> bool {
+        #[cfg(feature = "target")]
+        if let Some(target) = self.target {
+            if sensor_values.get(&target).is_none_or(|v| !v.has_target()) {
+                return false;
+            }
+        }
         self.requirements.iter().all(|IdContainer { id, value }| {
             sensor_values.get(id).map_or(false, |v| value.compare(v))
         })
@@ -177,5 +182,12 @@ impl<C: Reflect> ActionProviderTrait for ActionProvider<C> {
     }
     fn component(&self) -> &dyn PartialReflect {
         &self.action
+    }
+    fn clone_box(&self) -> Box<dyn ActionProviderTrait> {
+        Box::new(self.clone())
+    }
+    #[cfg(feature = "target")]
+    fn target(&self) -> &Option<ComponentId> {
+        &self.target
     }
 }

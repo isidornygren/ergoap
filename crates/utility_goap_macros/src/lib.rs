@@ -30,6 +30,9 @@ pub fn derive_world_sensor(input: TokenStream) -> TokenStream {
                         fn value(&self) -> #field_type {
                             self.0
                         }
+                        fn set_value(&mut self, value: impl Into<#field_type>) {
+                            self.0 = value.into();
+                        }
                     }
                     impl SensorEffect<#field_type> for #name {}
                     impl SensorComparison<#field_type> for #name {}
@@ -58,6 +61,9 @@ pub fn derive_world_sensor(input: TokenStream) -> TokenStream {
                     impl WorldSensorValue<#field_type> for #name {
                         fn value(&self) -> #field_type {
                             self.#field_name
+                        }
+                        fn set_value(&mut self, value: impl Into<#field_type>) {
+                            self.#field_name = value.into();
                         }
                     }
                     impl SensorEffect<#field_type> for #name {}

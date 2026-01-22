@@ -1,10 +1,14 @@
-use bevy_app::{App, First, FixedPostUpdate, Plugin};
-use bevy_ecs::schedule::IntoScheduleConfigs;
+use bevy_app::{
+    App, First, FixedMainScheduleOrder, FixedPostUpdate, FixedUpdate, MainScheduleOrder, Plugin,
+};
+use bevy_ecs::schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet};
 use bevy_ecs::world::World;
 use plan::make_plan;
 use world_sensor::collect_sensor_values;
 
 use crate::auto_register::register_trait_types;
+#[cfg(feature = "target")]
+use crate::target::finish_goto;
 
 mod action_provider;
 mod astar;
@@ -16,8 +20,10 @@ mod goal;
 mod id_container;
 mod plan;
 mod sensor_state;
-mod world_sensor;
+#[cfg(feature = "target")]
+mod target;
 
+mod world_sensor;
 pub(crate) use id_container::IdContainer;
 
 pub use crate::action_provider::{ActionProvider, ActionProviderBuilder, ActionProviderTrait};
@@ -25,10 +31,14 @@ pub use crate::comparison::Comparison;
 pub use crate::current_action::CurrentAction;
 pub use crate::goal::Goal;
 pub use crate::sensor_state::SensorState;
+#[cfg(feature = "target")]
+pub use crate::world_sensor::TargetValue;
 pub use crate::world_sensor::{
     SensorComparison, SensorEffect, SensorValue, WorldSensor, WorldSensorValue,
 };
 pub use auto_register::{AutomaticTraitRegistrations, RegisterComponentAs};
+#[cfg(feature = "target")]
+pub use target::GotoTarget;
 
 pub mod __macro_exports {
     pub use bevy_ecs;
@@ -36,11 +46,25 @@ pub mod __macro_exports {
     pub use inventory;
 }
 
+#[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SensorUpdate;
+
+#[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Planning;
+
 pub struct UtilityGoapPlugin;
 
 impl Plugin for UtilityGoapPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(FixedPostUpdate, (collect_sensor_values, make_plan).chain())
+        app.init_schedule(SensorUpdate).init_schedule(Planning);
+        {
+            let mut main_schedule_order = app.world_mut().resource_mut::<FixedMainScheduleOrder>();
+            main_schedule_order.insert_after(FixedUpdate, SensorUpdate);
+            main_schedule_order.insert_after(SensorUpdate, Planning);
+        }
+        app.add_systems(Planning, (collect_sensor_values, make_plan).chain())
             .add_systems(First, |world: &mut World| register_trait_types(world));
+        #[cfg(feature = "target")]
+        app.add_systems(FixedPostUpdate, finish_goto);
     }
 }
