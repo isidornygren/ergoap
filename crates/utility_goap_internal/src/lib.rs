@@ -1,7 +1,5 @@
-use bevy_app::{
-    App, First, FixedMainScheduleOrder, FixedPostUpdate, FixedUpdate, MainScheduleOrder, Plugin,
-};
-use bevy_ecs::schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet};
+use bevy_app::{App, First, FixedMainScheduleOrder, FixedUpdate, Plugin};
+use bevy_ecs::schedule::{IntoScheduleConfigs, ScheduleLabel};
 use bevy_ecs::world::World;
 use plan::make_plan;
 use world_sensor::collect_sensor_values;
@@ -9,6 +7,8 @@ use world_sensor::collect_sensor_values;
 use crate::auto_register::register_trait_types;
 #[cfg(feature = "target")]
 use crate::target::finish_goto;
+#[cfg(feature = "target")]
+use bevy_app::FixedPostUpdate;
 
 mod action_provider;
 mod astar;

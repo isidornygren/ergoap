@@ -219,16 +219,12 @@ struct Lcg {
 }
 
 impl Lcg {
-    fn new(seed: u32) -> Self {
-        Self { state: seed }
-    }
-
     fn next(&mut self) -> u32 {
         self.state = self.state.wrapping_mul(1664525).wrapping_add(1013904223);
         self.state
     }
 
-    fn range(&mut self, min: f32, max: f32) -> f32 {
+    fn range_f32(&mut self, min: f32, max: f32) -> f32 {
         let normalized = self.next() as f32 / u32::MAX as f32;
         min + normalized * (max - min)
     }
@@ -240,13 +236,14 @@ fn spawn_food(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut food_spawn_timer: ResMut<FoodSpawnTimer>,
     time: Res<Time<Virtual>>,
-    mut lcg: Local<Option<Lcg>>,
 ) {
-    let rng = lcg.get_or_insert_with(|| Lcg::new(42));
+    let mut rng = Lcg {
+        state: time.elapsed().as_nanos() as u32,
+    };
     food_spawn_timer.timer.tick(time.delta());
     if food_spawn_timer.timer.is_finished() {
-        let x = rng.range(-300.0, 300.0);
-        let y = rng.range(-300.0, 300.0);
+        let x = rng.range_f32(-300.0, 300.0);
+        let y = rng.range_f32(-300.0, 300.0);
 
         commands.spawn((
             Food,

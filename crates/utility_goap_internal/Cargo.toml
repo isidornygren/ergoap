@@ -12,4 +12,5 @@ thiserror = "2.0.17"
 inventory = "0.3.21"
 
 [features]
+default = ["target"]
 target = []
