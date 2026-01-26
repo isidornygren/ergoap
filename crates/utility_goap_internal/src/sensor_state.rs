@@ -25,11 +25,9 @@ impl SensorState {
     }
 
     #[must_use]
-    pub fn from_vec<V, I>(values: V) -> Self
-    where
-        V: IntoIterator<Item = (ComponentId, I)>,
-        I: Into<SensorValue>,
-    {
+    pub fn from_vec<V: IntoIterator<Item = (ComponentId, I)>, I: Into<SensorValue>>(
+        values: V,
+    ) -> Self {
         Self(
             values
                 .into_iter()
@@ -43,10 +41,7 @@ impl SensorState {
         self.0.get(component_id)
     }
 
-    pub fn insert<T>(&mut self, component_id: ComponentId, value: T)
-    where
-        T: Into<SensorValue>,
-    {
+    pub fn insert<T: Into<SensorValue>>(&mut self, component_id: ComponentId, value: T) {
         self.0.insert(component_id, value.into());
     }
 

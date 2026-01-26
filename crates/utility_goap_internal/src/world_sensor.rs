@@ -73,46 +73,32 @@ pub trait WorldSensorValue<T> {
     fn value(&self) -> T;
 }
 
-pub trait SensorComparison<T>: WorldSensorValue<T> + Any {
-    fn equal(value: T) -> IdContainer<TypeId, Comparison>
-    where
-        T: Into<SensorValue>,
-        Self: Sized,
-    {
+pub trait SensorComparison<T: Into<SensorValue>>: WorldSensorValue<T> + Any + Sized {
+    fn equal(value: T) -> IdContainer<TypeId, Comparison> {
         IdContainer::new::<Self>(Comparison::Equal(value.into()))
     }
 
-    fn not_equal(value: T) -> IdContainer<TypeId, Comparison>
-    where
-        T: Into<SensorValue>,
-        Self: Sized,
-    {
+    fn not_equal(value: T) -> IdContainer<TypeId, Comparison> {
         IdContainer::new::<Self>(Comparison::NotEqual(value.into()))
     }
 
     fn greater_than(value: T) -> IdContainer<TypeId, Comparison>
     where
-        T: Into<SensorValue> + PartialOrd,
-        Self: Sized,
+        T: PartialOrd,
     {
         IdContainer::new::<Self>(Comparison::GreaterThan(value.into()))
     }
 
     fn less_than(value: T) -> IdContainer<TypeId, Comparison>
     where
-        T: Into<SensorValue> + PartialOrd,
-        Self: Sized,
+        T: PartialOrd,
     {
         IdContainer::new::<Self>(Comparison::LessThan(value.into()))
     }
 }
 
-pub trait SensorEffect<T>: WorldSensorValue<T> + Any {
-    fn set(value: T) -> IdContainer<TypeId, EffectValue>
-    where
-        T: Into<SensorValue>,
-        Self: Sized,
-    {
+pub trait SensorEffect<T: Into<SensorValue>>: WorldSensorValue<T> + Any + Sized {
+    fn set(value: T) -> IdContainer<TypeId, EffectValue> {
         IdContainer::new::<Self>(EffectValue::Set(value.into()))
     }
 }
