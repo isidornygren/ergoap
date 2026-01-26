@@ -85,9 +85,9 @@ pub fn finish_goto(
         );
         if let SensorValue::Target(Some(TargetValue { is_close, .. })) = sensor_state.unwrap() {
             if *is_close {
-                commands.entity(entity).force_spawn_current_action(
-                    goto_action.next_action().ok_or(GotoError::ActionNotFound)?,
-                );
+                commands
+                    .entity(entity)
+                    .insert_action(goto_action.next_action().ok_or(GotoError::ActionNotFound)?);
             }
         }
     }

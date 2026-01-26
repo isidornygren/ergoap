@@ -10,12 +10,12 @@ struct LampTarget(Option<TargetValue>);
 #[derive(Component, WorldSensor, Default)]
 struct SleepTarget(Option<TargetValue>);
 
-#[derive(Clone, Reflect, Action)]
+#[derive(Clone, Action)]
 struct ToggleLampAction {
     to: bool,
 }
 
-#[derive(Clone, Reflect, Action)]
+#[derive(Clone, Action)]
 struct EatFoodAction;
 
 #[derive(Component)]
@@ -36,6 +36,9 @@ struct Hunger(f32);
 
 #[derive(Component, Debug, WorldSensor)]
 struct IsHungry(bool);
+
+#[derive(Scorer)]
+struct HungryScorer(f32);
 
 fn toggle_sensor(
     query: Query<&CurrentAction<ToggleLampAction>>,
@@ -164,6 +167,7 @@ fn actor_bundle(
             .with_requirement(IsHungry::equal(true))
             .with_target::<FoodTarget>(TargetConfig::Proximity)
             .with_cost(1),
+        GoalProvider::from_requirement(HungryScorer(0.), LampSensor::equal(lamp_value)),
         Transform::from_translation(position),
         Mesh2d(mesh),
         MeshMaterial2d(color),

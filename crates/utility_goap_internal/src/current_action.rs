@@ -4,7 +4,6 @@ use bevy_ecs::{
     component::{Component, ComponentId},
     lifecycle::HookContext,
     prelude::ReflectComponent,
-    reflect::ReflectCommandExt,
     system::EntityCommands,
     world::{DeferredWorld, EntityWorldMut},
 };
@@ -67,17 +66,19 @@ impl<A> DerefMut for CurrentAction<A> {
 }
 
 pub trait CurrentActionCommands {
-    #[cfg(feature = "target")]
-    fn force_spawn_current_action(&mut self, action: &Box<dyn ActionProviderTrait>);
     fn spawn_current_action(&mut self, action: Box<dyn ActionProviderTrait>);
     fn despawn_current_action(&mut self);
+    fn insert_action(&mut self, action: &Box<dyn ActionProviderTrait>);
 }
 
 impl CurrentActionCommands for EntityCommands<'_> {
-    #[cfg(feature = "target")]
-    fn force_spawn_current_action(&mut self, action: &Box<dyn ActionProviderTrait>) {
-        self.insert_reflect(action.component().to_dynamic());
+    fn insert_action(&mut self, action: &Box<dyn ActionProviderTrait>) {
+        let cloned_action = action.clone_box();
+        self.queue(move |mut entity_world: EntityWorldMut| {
+            cloned_action.insert_current_action(&mut entity_world);
+        });
     }
+
     fn spawn_current_action(&mut self, action: Box<dyn ActionProviderTrait>) {
         #[cfg(feature = "target")]
         if let Some(target) = action.target().as_ref().map(|target| target.clone()) {
@@ -107,14 +108,14 @@ impl CurrentActionCommands for EntityCommands<'_> {
                         },
                     });
                 } else {
-                    entity_world.insert_reflect(action.component().to_dynamic());
+                    action.insert_current_action(&mut entity_world);
                 }
             });
         } else {
-            self.insert_reflect(action.component().to_dynamic());
+            self.insert_action(&action);
         }
         #[cfg(not(feature = "target"))]
-        self.insert_reflect(action.component().to_dynamic());
+        self.insert_action(&action);
     }
 
     fn despawn_current_action(&mut self) {

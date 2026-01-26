@@ -3,19 +3,18 @@ use std::any::Any;
 use std::any::TypeId;
 
 use bevy_ecs::{
-    component::{Component, ComponentId, Mutable, StorageType},
+    component::{Component, ComponentId, Immutable, StorageType},
+    error::Result,
     lifecycle::HookContext,
-    reflect::AppTypeRegistry,
-    world::{DeferredWorld, World},
+    world::{DeferredWorld, EntityWorldMut, World},
 };
-use bevy_reflect::{FromReflect, GetTypeRegistration, PartialReflect, Reflect, Typed};
 use bevy_trait_query::queryable;
 
 #[cfg(feature = "target")]
 use crate::target::TargetConfig;
 use crate::{
-    Comparison, IdContainer, RegisterComponentAs, current_action::CurrentAction,
-    effect::EffectValue, id_container::ComponentNotFound, sensor_state::SensorState,
+    Comparison, IdContainer, current_action::CurrentAction, effect::EffectValue,
+    id_container::ComponentNotFound, sensor_state::SensorState,
 };
 
 #[queryable]
@@ -23,37 +22,30 @@ pub trait ActionProviderTrait: Send + Sync {
     fn apply(&self, sensor_values: &mut SensorState);
     fn preconditions_met(&self, _sensor_values: &SensorState) -> bool;
     fn cost(&self) -> usize;
-    fn component(&self) -> &dyn PartialReflect;
+    fn insert_current_action(&self, entity_world: &mut EntityWorldMut);
     fn clone_box(&self) -> Box<dyn ActionProviderTrait>;
     #[cfg(feature = "target")]
     fn target(&self) -> &Option<IdContainer<ComponentId, TargetConfig>>;
 }
 
-pub fn on_insert_action_provider_builder<C: Clone + Typed + FromReflect + GetTypeRegistration>(
+pub fn on_insert_action_provider_builder<C: Clone + Send + Sync + 'static>(
     mut world: DeferredWorld,
-    HookContext {
-        entity,
-        component_id,
-        ..
-    }: HookContext,
+    HookContext { entity, .. }: HookContext,
 ) {
-    if let Some(action_provider_builder) = world.get::<ActionProviderBuilder<C>>(entity) {
-        let action_provider = action_provider_builder
-            .build(&world)
-            .expect("Could not build action provider");
-        world
-            .resource_mut::<AppTypeRegistry>()
-            .write()
-            .register::<CurrentAction<C>>();
-        world
-            .commands()
-            .entity(entity)
-            .insert(action_provider)
-            .remove_by_id(component_id);
-    }
+    world
+        .commands()
+        .entity(entity)
+        .queue(|mut entity_world_mut: EntityWorldMut| -> Result {
+            if let Some(action_provider_builder) =
+                entity_world_mut.take::<ActionProviderBuilder<C>>()
+            {
+                let action_provider = action_provider_builder.build(entity_world_mut.world())?;
+                entity_world_mut.insert(action_provider);
+            }
+            Ok(())
+        });
 }
 
-#[derive(Clone)]
 pub struct ActionProviderBuilder<C> {
     pub action: C,
     pub cost: usize,
@@ -89,34 +81,29 @@ impl<C> ActionProviderBuilder<C> {
     }
 }
 
-impl<C: Clone + Typed + FromReflect + GetTypeRegistration> Component for ActionProviderBuilder<C> {
-    const STORAGE_TYPE: StorageType = StorageType::Table;
+impl<C: Clone + Send + Sync + 'static> Component for ActionProviderBuilder<C> {
+    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
 
-    type Mutability = Mutable;
+    type Mutability = Immutable;
 
     fn on_insert() -> Option<bevy_ecs::lifecycle::ComponentHook> {
         Some(on_insert_action_provider_builder::<C>)
     }
 }
 
-impl<C: Clone + Typed + FromReflect + GetTypeRegistration> ActionProviderBuilder<C> {
-    pub(crate) fn build(
-        &self,
-        world: &World,
-    ) -> Result<ActionProvider<CurrentAction<C>>, ComponentNotFound> {
+impl<C> ActionProviderBuilder<C> {
+    pub(crate) fn build(self, world: &World) -> Result<ActionProvider<C>, ComponentNotFound> {
         Ok(ActionProvider {
             cost: self.cost,
-            action: CurrentAction {
-                action: self.action.clone(),
-            },
+            action: self.action,
             requirements: self
                 .requirements
-                .iter()
+                .into_iter()
                 .map(|requirement| requirement.build(world))
                 .collect::<Result<Vec<_>, _>>()?,
             effects: self
                 .effects
-                .iter()
+                .into_iter()
                 .map(|effect| effect.build(world))
                 .collect::<Result<Vec<_>, _>>()?,
             #[cfg(feature = "target")]
@@ -130,7 +117,7 @@ impl<C: Clone + Typed + FromReflect + GetTypeRegistration> ActionProviderBuilder
 
 #[derive(Component, Clone)]
 #[require(SensorState)]
-pub struct ActionProvider<C: Reflect> {
+pub struct ActionProvider<C> {
     pub action: C,
     pub cost: usize,
     pub requirements: Vec<IdContainer<ComponentId, Comparison>>,
@@ -139,7 +126,7 @@ pub struct ActionProvider<C: Reflect> {
     pub target: Option<IdContainer<ComponentId, TargetConfig>>,
 }
 
-impl<C: Reflect + Clone + RegisterComponentAs> ActionProvider<C> {
+impl<C> ActionProvider<C> {
     pub fn new(action: C) -> ActionProviderBuilder<C> {
         ActionProviderBuilder {
             action,
@@ -152,7 +139,7 @@ impl<C: Reflect + Clone + RegisterComponentAs> ActionProvider<C> {
     }
 }
 
-impl<C: Reflect + Clone> ActionProviderTrait for ActionProvider<C> {
+impl<C: Clone + Send + Sync + 'static> ActionProviderTrait for ActionProvider<C> {
     fn apply(&self, sensor_values: &mut SensorState) {
         for IdContainer {
             id,
@@ -183,12 +170,17 @@ impl<C: Reflect + Clone> ActionProviderTrait for ActionProvider<C> {
     fn cost(&self) -> usize {
         self.cost
     }
-    fn component(&self) -> &dyn PartialReflect {
-        &self.action
+
+    fn insert_current_action(&self, entity_world: &mut EntityWorldMut) {
+        entity_world.insert(CurrentAction {
+            action: self.action.clone(),
+        });
     }
+
     fn clone_box(&self) -> Box<dyn ActionProviderTrait> {
         Box::new(self.clone())
     }
+
     #[cfg(feature = "target")]
     fn target(&self) -> &Option<IdContainer<ComponentId, TargetConfig>> {
         &self.target

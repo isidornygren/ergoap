@@ -22,6 +22,8 @@ mod plan;
 mod sensor_state;
 #[cfg(feature = "target")]
 mod target;
+#[cfg(feature = "utility")]
+mod utility;
 
 mod world_sensor;
 pub(crate) use id_container::IdContainer;
@@ -39,6 +41,8 @@ pub use crate::world_sensor::{
 pub use auto_register::{AutomaticTraitRegistrations, RegisterComponentAs};
 #[cfg(feature = "target")]
 pub use target::{GotoTarget, TargetConfig};
+#[cfg(feature = "utility")]
+pub use utility::{GoalProvider, GoalProviderTrait, Score, Scorer};
 
 pub mod __macro_exports {
     pub use bevy_ecs;
