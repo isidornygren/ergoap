@@ -4,7 +4,7 @@ use std::{
     collections::{BinaryHeap, HashSet},
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 struct Node {
     state: SensorState,
     parent_index: Option<usize>,
@@ -73,20 +73,16 @@ pub fn astar_plan(
     actions: &Vec<&dyn ActionProviderTrait>,
     goal: &Goal,
 ) -> Option<Vec<usize>> {
-    let mut open_set = BinaryHeap::with_capacity(actions.len());
     let mut closed_set = HashSet::with_capacity(actions.len());
     let mut all_nodes = Vec::new();
 
     let start_node = Node {
         state: start_state.clone(),
-        parent_index: None,
-        action_taken: None,
-        goal_cost: 0,
         heuristic_cost: goal.distance(start_state),
+        ..Default::default()
     };
 
     all_nodes.push(start_node);
-    open_set.push((0, 0));
 
     let mut open_set = BinaryHeap::with_capacity(actions.len());
     open_set.push((std::cmp::Reverse(all_nodes[0].cost()), 0));
