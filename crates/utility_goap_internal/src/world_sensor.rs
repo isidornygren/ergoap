@@ -69,7 +69,6 @@ pub trait WorldSensor: Any {
 
 pub trait WorldSensorValue<T> {
     fn value(&self) -> T;
-    fn set_value(&mut self, value: impl Into<T>);
 }
 
 pub trait SensorComparison<T>: WorldSensorValue<T> + Any {

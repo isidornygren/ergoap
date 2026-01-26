@@ -1,11 +1,21 @@
 use bevy::{ecs::component::Mutable, prelude::*};
 use utility_goap::prelude::*;
 
+trait SetSensorValue<T> {
+    fn set_value(&mut self, value: T);
+}
+
 #[derive(Component, WorldSensor)]
 struct LampSensor(bool);
 
 #[derive(Component, WorldSensor, Default)]
 struct LampTarget(Option<TargetValue>);
+
+impl SetSensorValue<TargetValue> for LampTarget {
+    fn set_value(&mut self, value: TargetValue) {
+        self.0 = Some(value);
+    }
+}
 
 #[derive(Component, WorldSensor, Default)]
 struct SleepTarget(Option<TargetValue>);
@@ -27,6 +37,12 @@ struct Lamp {
 
 #[derive(Component, WorldSensor, Default)]
 struct FoodTarget(Option<TargetValue>);
+
+impl SetSensorValue<TargetValue> for FoodTarget {
+    fn set_value(&mut self, value: TargetValue) {
+        self.0 = Some(value)
+    }
+}
 
 #[derive(Component)]
 struct Food;
@@ -63,15 +79,12 @@ fn update_lamp_sensor(lamp: Single<&Lamp, Changed<Lamp>>, mut query: Query<&mut 
 fn update_hunger(mut query: Query<(&mut Hunger, &mut IsHungry)>, time: Res<Time<Virtual>>) {
     for (mut hunger, mut is_hungry) in query.iter_mut() {
         hunger.0 += time.delta_secs();
-        let new_is_hungry = hunger.0 > 10.;
-        if new_is_hungry != is_hungry.0 {
-            is_hungry.0 = new_is_hungry
-        }
+        is_hungry.0 = hunger.0 > 10.;
     }
 }
 
 fn update_target<
-    TargetSensor: WorldSensor + WorldSensorValue<Option<TargetValue>> + Component<Mutability = Mutable>,
+    TargetSensor: SetSensorValue<TargetValue> + Component<Mutability = Mutable>,
     Target: Component,
 >(
     mut query: Query<(Entity, &mut TargetSensor)>,

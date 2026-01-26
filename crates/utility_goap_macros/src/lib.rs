@@ -36,7 +36,6 @@ fn generate_world_sensor_impl(
     name: &Ident,
     field_type: &syn::Type,
     value_getter: proc_macro2::TokenStream,
-    value_setter: proc_macro2::TokenStream,
 ) -> proc_macro2::TokenStream {
     quote! {
         impl WorldSensor for #name {
@@ -47,9 +46,6 @@ fn generate_world_sensor_impl(
         impl WorldSensorValue<#field_type> for #name {
             fn value(&self) -> #field_type {
                 #value_getter
-            }
-            fn set_value(&mut self, value: impl Into<#field_type>) {
-                #value_setter;
             }
         }
         impl SensorEffect<#field_type> for #name {}
@@ -79,12 +75,7 @@ pub fn derive_world_sensor(input: TokenStream) -> TokenStream {
         Data::Struct(data) => match &data.fields {
             Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
                 let field_type = &fields.unnamed.first().unwrap().ty;
-                generate_world_sensor_impl(
-                    name,
-                    field_type,
-                    quote!(self.0),
-                    quote!(self.0 = value.into()),
-                )
+                generate_world_sensor_impl(name, field_type, quote!(self.0))
             }
             Fields::Named(fields) => {
                 let field = fields
@@ -100,12 +91,7 @@ pub fn derive_world_sensor(input: TokenStream) -> TokenStream {
                 let field_name = field.ident.as_ref().unwrap();
                 let field_type = &field.ty;
 
-                generate_world_sensor_impl(
-                    name,
-                    field_type,
-                    quote!(self.#field_name),
-                    quote!(self.#field_name = value.into()),
-                )
+                generate_world_sensor_impl(name, field_type, quote!(self.#field_name))
             }
             _ => panic!(
                 "WorldSensor requires either a newtype struct (single unnamed field) or named fields with #[world_sensor] attribute"
