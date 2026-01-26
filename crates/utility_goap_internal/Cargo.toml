@@ -11,6 +11,9 @@ bevy-trait-query = "0.18.0"
 thiserror = "2.0.17"
 inventory = "0.3.21"
 
+[lints]
+workspace = true
+
 [features]
 default = ["target", "utility"]
 target = []

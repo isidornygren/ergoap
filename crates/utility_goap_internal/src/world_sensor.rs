@@ -12,13 +12,13 @@ use thiserror::Error;
 use crate::{Comparison, IdContainer, effect::EffectValue, sensor_state::SensorState};
 
 #[cfg(feature = "target")]
-#[derive(Debug, PartialEq, Clone, Copy, PartialOrd, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Hash)]
 pub struct TargetValue {
     pub entity: Entity,
     pub is_close: bool,
 }
 
-#[derive(Debug, PartialEq, Clone, Hash, Copy, PartialOrd)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Copy, PartialOrd)]
 pub enum SensorValue {
     Bool(bool),
     #[cfg(feature = "target")]
@@ -27,14 +27,16 @@ pub enum SensorValue {
 
 #[cfg(feature = "target")]
 impl SensorValue {
-    pub fn has_target(&self) -> bool {
+    #[must_use]
+    pub const fn has_target(&self) -> bool {
         match self {
             Self::Target(v) => v.is_some(),
             _ => false,
         }
     }
 
-    pub fn is_close(&self) -> bool {
+    #[must_use]
+    pub const fn is_close(&self) -> bool {
         match self {
             Self::Target(Some(v)) => v.is_close,
             _ => false,
@@ -43,22 +45,22 @@ impl SensorValue {
 }
 
 impl From<bool> for SensorValue {
-    fn from(boolean: bool) -> SensorValue {
-        SensorValue::Bool(boolean)
+    fn from(boolean: bool) -> Self {
+        Self::Bool(boolean)
     }
 }
 
 #[cfg(feature = "target")]
 impl From<Option<TargetValue>> for SensorValue {
-    fn from(value: Option<TargetValue>) -> SensorValue {
-        SensorValue::Target(value)
+    fn from(value: Option<TargetValue>) -> Self {
+        Self::Target(value)
     }
 }
 
 #[cfg(feature = "target")]
 impl From<TargetValue> for SensorValue {
-    fn from(value: TargetValue) -> SensorValue {
-        SensorValue::Target(Some(value))
+    fn from(value: TargetValue) -> Self {
+        Self::Target(Some(value))
     }
 }
 

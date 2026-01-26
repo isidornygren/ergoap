@@ -10,7 +10,7 @@ pub struct IdContainer<Id, Value> {
 }
 
 impl<Value> IdContainer<TypeId, Value> {
-    pub fn new<T: Any>(value: Value) -> Self {
+    pub const fn new<T: Any>(value: Value) -> Self {
         Self {
             id: TypeId::of::<T>(),
             value,

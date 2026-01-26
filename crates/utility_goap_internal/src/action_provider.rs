@@ -56,23 +56,27 @@ pub struct ActionProviderBuilder<C> {
 }
 
 impl<C> ActionProviderBuilder<C> {
-    pub fn with_cost(mut self, cost: usize) -> Self {
+    #[must_use]
+    pub const fn with_cost(mut self, cost: usize) -> Self {
         self.cost = cost;
         self
     }
 
+    #[must_use]
     pub fn with_effect(mut self, effect: IdContainer<TypeId, EffectValue>) -> Self {
         self.effects.push(effect);
         self
     }
 
+    #[must_use]
     pub fn with_requirement(mut self, requirement: IdContainer<TypeId, Comparison>) -> Self {
         self.requirements.push(requirement);
         self
     }
 
     #[cfg(feature = "target")]
-    pub fn with_target<T: Any>(mut self, target_config: TargetConfig) -> Self {
+    #[must_use]
+    pub const fn with_target<T: Any>(mut self, target_config: TargetConfig) -> Self {
         self.target = Some(IdContainer {
             value: target_config,
             id: TypeId::of::<T>(),
@@ -127,7 +131,7 @@ pub struct ActionProvider<C> {
 }
 
 impl<C> ActionProvider<C> {
-    pub fn new(action: C) -> ActionProviderBuilder<C> {
+    pub const fn new(action: C) -> ActionProviderBuilder<C> {
         ActionProviderBuilder {
             action,
             cost: 1,
@@ -144,7 +148,7 @@ impl<C: Clone + Send + Sync + 'static> ActionProviderTrait for ActionProvider<C>
         for IdContainer {
             id,
             value: effect_value,
-        } in self.effects.iter()
+        } in &self.effects
         {
             match effect_value {
                 EffectValue::Set(value) => sensor_values.insert(*id, *value),
@@ -154,16 +158,15 @@ impl<C: Clone + Send + Sync + 'static> ActionProviderTrait for ActionProvider<C>
 
     fn preconditions_met(&self, sensor_values: &SensorState) -> bool {
         #[cfg(feature = "target")]
-        if let Some(target) = &self.target {
-            if sensor_values
+        if let Some(target) = &self.target
+            && sensor_values
                 .get(&target.id)
                 .is_none_or(|v| !v.has_target())
-            {
-                return false;
-            }
+        {
+            return false;
         }
         self.requirements.iter().all(|IdContainer { id, value }| {
-            sensor_values.get(id).map_or(false, |v| value.compare(v))
+            sensor_values.get(id).is_some_and(|v| value.compare(v))
         })
     }
 

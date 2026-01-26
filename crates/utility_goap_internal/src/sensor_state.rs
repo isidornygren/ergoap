@@ -4,7 +4,7 @@ use bevy_ecs::component::{Component, ComponentId};
 
 use crate::SensorValue;
 
-#[derive(Component, Debug, Default, PartialEq, Clone)]
+#[derive(Component, Debug, Default, PartialEq, Eq, Clone)]
 pub struct SensorState(pub(crate) HashMap<ComponentId, SensorValue>);
 
 impl std::hash::Hash for SensorState {
@@ -19,23 +19,26 @@ impl std::hash::Hash for SensorState {
 }
 
 impl SensorState {
+    #[must_use]
     pub fn new() -> Self {
-        Self { 0: HashMap::new() }
+        Self(HashMap::new())
     }
 
+    #[must_use]
     pub fn from_vec<V, I>(values: V) -> Self
     where
         V: IntoIterator<Item = (ComponentId, I)>,
         I: Into<SensorValue>,
     {
-        Self {
-            0: values
+        Self(
+            values
                 .into_iter()
                 .map(|(comp_id, value)| (comp_id, value.into()))
                 .collect(),
-        }
+        )
     }
 
+    #[must_use]
     pub fn get(&self, component_id: &ComponentId) -> Option<&SensorValue> {
         self.0.get(component_id)
     }

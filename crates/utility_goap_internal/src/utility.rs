@@ -12,7 +12,7 @@ pub struct Score(f32);
 
 impl From<f32> for Score {
     fn from(value: f32) -> Self {
-        Score(value)
+        Self(value)
     }
 }
 

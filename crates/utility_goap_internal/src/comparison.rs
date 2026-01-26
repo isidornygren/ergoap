@@ -9,6 +9,7 @@ pub enum Comparison {
 }
 
 impl Comparison {
+    #[must_use]
     pub fn compare(&self, value: &SensorValue) -> bool {
         match self {
             Self::Equal(v) => *v == *value,

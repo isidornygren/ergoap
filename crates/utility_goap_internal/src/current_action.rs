@@ -68,11 +68,11 @@ impl<A> DerefMut for CurrentAction<A> {
 pub trait CurrentActionCommands {
     fn spawn_current_action(&mut self, action: Box<dyn ActionProviderTrait>);
     fn despawn_current_action(&mut self);
-    fn insert_action(&mut self, action: &Box<dyn ActionProviderTrait>);
+    fn insert_action(&mut self, action: &dyn ActionProviderTrait);
 }
 
 impl CurrentActionCommands for EntityCommands<'_> {
-    fn insert_action(&mut self, action: &Box<dyn ActionProviderTrait>) {
+    fn insert_action(&mut self, action: &dyn ActionProviderTrait) {
         let cloned_action = action.clone_box();
         self.queue(move |mut entity_world: EntityWorldMut| {
             cloned_action.insert_current_action(&mut entity_world);
@@ -81,7 +81,7 @@ impl CurrentActionCommands for EntityCommands<'_> {
 
     fn spawn_current_action(&mut self, action: Box<dyn ActionProviderTrait>) {
         #[cfg(feature = "target")]
-        if let Some(target) = action.target().as_ref().map(|target| target.clone()) {
+        if let Some(target) = action.target().clone() {
             self.queue(move |mut entity_world: EntityWorldMut| {
                 use crate::{
                     SensorState, SensorValue, target::TargetConfig, world_sensor::TargetValue,
@@ -112,7 +112,7 @@ impl CurrentActionCommands for EntityCommands<'_> {
                 }
             });
         } else {
-            self.insert_action(&action);
+            self.insert_action(&*action);
         }
         #[cfg(not(feature = "target"))]
         self.insert_action(&action);

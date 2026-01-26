@@ -14,7 +14,8 @@ struct Node {
 }
 
 impl Node {
-    fn cost(&self) -> usize {
+    #[must_use]
+    const fn cost(&self) -> usize {
         self.goal_cost + self.heuristic_cost
     }
 }
@@ -67,7 +68,7 @@ fn reconstruct_path(nodes: &[Node], goal_index: usize) -> Vec<usize> {
     path
 }
 
-pub(crate) fn astar_plan(
+pub fn astar_plan(
     start_state: &SensorState,
     actions: &Vec<&dyn ActionProviderTrait>,
     goal: &Goal,
@@ -84,7 +85,7 @@ pub(crate) fn astar_plan(
         heuristic_cost: goal.distance(start_state),
     };
 
-    all_nodes.push(start_node.clone());
+    all_nodes.push(start_node);
     open_set.push((0, 0));
 
     let mut open_set = BinaryHeap::with_capacity(actions.len());

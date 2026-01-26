@@ -13,7 +13,7 @@ use crate::{
     current_action::CurrentActionCommands,
 };
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum TargetConfig {
     Proximity,
     Target,
@@ -25,11 +25,13 @@ pub struct GotoTarget {
 }
 
 impl CurrentAction<GotoTarget> {
-    pub fn target(&self) -> Entity {
+    #[must_use]
+    pub const fn target(&self) -> Entity {
         self.action.target
     }
-    pub fn next_action(&self) -> Option<&Box<dyn ActionProviderTrait>> {
-        self.action.next_action.as_ref()
+    #[must_use]
+    pub fn next_action(&self) -> Option<&dyn ActionProviderTrait> {
+        self.action.next_action.as_deref()
     }
 }
 
@@ -50,7 +52,7 @@ impl Relationship for CurrentAction<GotoTarget> {
     }
 
     fn set_risky(&mut self, entity: Entity) {
-        self.action.target = entity
+        self.action.target = entity;
     }
 }
 
@@ -83,12 +85,12 @@ pub fn finish_goto(
                 .ok_or(GotoError::TargetNotFound)?
                 .id,
         );
-        if let SensorValue::Target(Some(TargetValue { is_close, .. })) = sensor_state.unwrap() {
-            if *is_close {
-                commands
-                    .entity(entity)
-                    .insert_action(goto_action.next_action().ok_or(GotoError::ActionNotFound)?);
-            }
+        if let SensorValue::Target(Some(TargetValue { is_close, .. })) = sensor_state.unwrap()
+            && *is_close
+        {
+            commands
+                .entity(entity)
+                .insert_action(goto_action.next_action().ok_or(GotoError::ActionNotFound)?);
         }
     }
     Ok(())
