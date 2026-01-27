@@ -81,7 +81,7 @@ impl CurrentActionCommands for EntityCommands<'_> {
 
     fn spawn_current_action(&mut self, action: Box<dyn ActionProviderTrait>) {
         #[cfg(feature = "target")]
-        if let Some(target) = action.target().clone() {
+        if let Some(target) = *action.target() {
             self.queue(move |mut entity_world: EntityWorldMut| {
                 use crate::{SensorState, SensorValue, world_sensor::TargetValue};
 
