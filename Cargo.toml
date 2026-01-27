@@ -4,11 +4,16 @@ version = "0.1.0"
 edition = "2024"
 
 [workspace]
-members = ["crates/utility_goap_internal", "crates/utility_goap_macros"]
+members = ["macros"]
 
 [dependencies]
-utility_goap_internal = { path = "crates/utility_goap_internal" }
-utility_goap_macros = { path = "crates/utility_goap_macros" }
+bevy_app = { version = "0.18.0" }
+bevy_ecs = { version = "0.18.0" }
+bevy_reflect = { version = "0.18.0" }
+bevy-trait-query = "0.18.0"
+thiserror = "2.0.17"
+inventory = "0.3.21"
+macros = { path = "macros" }
 
 [dev-dependencies]
 bevy = { version = "0.18.0", default-features = false, features = [
@@ -34,8 +39,9 @@ enum-variant-names = { level = "allow", priority = 1 }
 name = "basic"
 path = "examples/basic/main.rs"
 resolver = "3"
-required-features = ["target"]
+required-features = ["target", "utility"]
 
 [features]
-default = ["target"]
-target = ["utility_goap_internal/target"]
+target = []
+utility = []
+default = ["target", "utility"]
