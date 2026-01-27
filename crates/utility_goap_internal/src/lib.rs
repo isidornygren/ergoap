@@ -36,11 +36,12 @@ pub use crate::sensor_state::SensorState;
 #[cfg(feature = "target")]
 pub use crate::world_sensor::TargetValue;
 pub use crate::world_sensor::{
-    SensorComparison, SensorEffect, SensorValue, WorldSensor, WorldSensorValue,
+    SensorComparison, SensorComparisonBool, SensorComparisonOption, SensorEffect, SensorValue,
+    WorldSensor, WorldSensorValue,
 };
 pub use auto_register::{AutomaticTraitRegistrations, RegisterComponentAs};
 #[cfg(feature = "target")]
-pub use target::{GotoTarget, TargetConfig};
+pub use target::GotoTarget;
 #[cfg(feature = "utility")]
 pub use utility::{GoalProvider, GoalProviderTrait, Score, Scorer};
 

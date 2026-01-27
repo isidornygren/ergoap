@@ -83,15 +83,13 @@ impl CurrentActionCommands for EntityCommands<'_> {
         #[cfg(feature = "target")]
         if let Some(target) = action.target().clone() {
             self.queue(move |mut entity_world: EntityWorldMut| {
-                use crate::{
-                    SensorState, SensorValue, target::TargetConfig, world_sensor::TargetValue,
-                };
+                use crate::{SensorState, SensorValue, world_sensor::TargetValue};
 
                 let sensor_state = entity_world
                     .get::<SensorState>()
                     .expect("Could not get sensor state");
                 let current_target = sensor_state
-                    .get(&target.id)
+                    .get(&target)
                     .expect("Could not get current target");
                 let (entity, is_close) = match current_target {
                     SensorValue::Target(Some(TargetValue { entity, is_close })) => {
@@ -100,7 +98,7 @@ impl CurrentActionCommands for EntityCommands<'_> {
                     _ => None,
                 }
                 .expect("Current target not the correct value");
-                if target.value == TargetConfig::Proximity && !is_close {
+                if !is_close {
                     entity_world.insert(CurrentAction {
                         action: GotoTarget {
                             next_action: Some(action),

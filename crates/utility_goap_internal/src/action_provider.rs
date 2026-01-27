@@ -10,11 +10,12 @@ use bevy_ecs::{
 };
 use bevy_trait_query::queryable;
 
-#[cfg(feature = "target")]
-use crate::target::TargetConfig;
 use crate::{
-    Comparison, IdContainer, current_action::CurrentAction, effect::EffectValue,
-    id_container::ComponentNotFound, sensor_state::SensorState,
+    Comparison, IdContainer,
+    current_action::CurrentAction,
+    effect::EffectValue,
+    id_container::{BuildComponentId, ComponentNotFound},
+    sensor_state::SensorState,
 };
 
 #[queryable]
@@ -25,7 +26,7 @@ pub trait ActionProviderTrait: Send + Sync {
     fn insert_current_action(&self, entity_world: &mut EntityWorldMut);
     fn clone_box(&self) -> Box<dyn ActionProviderTrait>;
     #[cfg(feature = "target")]
-    fn target(&self) -> &Option<IdContainer<ComponentId, TargetConfig>>;
+    fn target(&self) -> &Option<ComponentId>;
 }
 
 pub fn on_insert_action_provider_builder<C: Clone + Send + Sync + 'static>(
@@ -52,7 +53,7 @@ pub struct ActionProviderBuilder<C> {
     pub requirements: Vec<IdContainer<TypeId, Comparison>>,
     pub effects: Vec<IdContainer<TypeId, EffectValue>>,
     #[cfg(feature = "target")]
-    pub target: Option<IdContainer<TypeId, TargetConfig>>,
+    pub target: Option<TypeId>,
 }
 
 impl<C> ActionProviderBuilder<C> {
@@ -76,11 +77,8 @@ impl<C> ActionProviderBuilder<C> {
 
     #[cfg(feature = "target")]
     #[must_use]
-    pub const fn with_target<T: Any>(mut self, target_config: TargetConfig) -> Self {
-        self.target = Some(IdContainer {
-            value: target_config,
-            id: TypeId::of::<T>(),
-        });
+    pub const fn with_target<T: Any>(mut self) -> Self {
+        self.target = Some(TypeId::of::<T>());
         self
     }
 }
@@ -103,16 +101,16 @@ impl<C> ActionProviderBuilder<C> {
             requirements: self
                 .requirements
                 .into_iter()
-                .map(|requirement| requirement.build(world))
+                .map(|requirement| world.build_id_container(requirement))
                 .collect::<Result<Vec<_>, _>>()?,
             effects: self
                 .effects
                 .into_iter()
-                .map(|effect| effect.build(world))
+                .map(|effect| world.build_id_container(effect))
                 .collect::<Result<Vec<_>, _>>()?,
             #[cfg(feature = "target")]
             target: match &self.target {
-                Some(target) => Some(target.build(world)?),
+                Some(target) => Some(world.get_component_id(target)?),
                 None => None,
             },
         })
@@ -127,7 +125,7 @@ pub struct ActionProvider<C> {
     pub requirements: Vec<IdContainer<ComponentId, Comparison>>,
     pub effects: Vec<IdContainer<ComponentId, EffectValue>>,
     #[cfg(feature = "target")]
-    pub target: Option<IdContainer<ComponentId, TargetConfig>>,
+    pub target: Option<ComponentId>,
 }
 
 impl<C> ActionProvider<C> {
@@ -159,9 +157,7 @@ impl<C: Clone + Send + Sync + 'static> ActionProviderTrait for ActionProvider<C>
     fn preconditions_met(&self, sensor_values: &SensorState) -> bool {
         #[cfg(feature = "target")]
         if let Some(target) = &self.target
-            && sensor_values
-                .get(&target.id)
-                .is_none_or(|v| !v.has_target())
+            && sensor_values.get(&target).is_none_or(|v| !v.has_target())
         {
             return false;
         }
@@ -185,7 +181,7 @@ impl<C: Clone + Send + Sync + 'static> ActionProviderTrait for ActionProvider<C>
     }
 
     #[cfg(feature = "target")]
-    fn target(&self) -> &Option<IdContainer<ComponentId, TargetConfig>> {
+    fn target(&self) -> &Option<ComponentId> {
         &self.target
     }
 }

@@ -171,14 +171,14 @@ fn actor_bundle(
         Goal::from_requirement(LampSensor::equal(lamp_value)),
         ActionProvider::new(ToggleLampAction { to: lamp_value })
             .with_effect(LampSensor::set(lamp_value))
-            .with_requirement(IsHungry::equal(false))
+            .with_requirement(IsHungry::is_false())
             .with_requirement(LampSensor::equal(!lamp_value))
-            .with_target::<LampTarget>(TargetConfig::Proximity)
+            .with_target::<LampTarget>()
             .with_cost(1),
         ActionProvider::new(EatFoodAction)
             .with_effect(IsHungry::set(false))
-            .with_requirement(IsHungry::equal(true))
-            .with_target::<FoodTarget>(TargetConfig::Proximity)
+            .with_requirement(IsHungry::is_true())
+            .with_target::<FoodTarget>()
             .with_cost(1),
         GoalProvider::from_requirement(HungryScorer(0.), LampSensor::equal(lamp_value)),
         Transform::from_translation(position),

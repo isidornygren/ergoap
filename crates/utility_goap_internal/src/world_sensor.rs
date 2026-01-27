@@ -74,14 +74,17 @@ pub trait WorldSensorValue<T> {
 }
 
 pub trait SensorComparison<T: Into<SensorValue>>: WorldSensorValue<T> + Any + Sized {
+    #[must_use]
     fn equal(value: T) -> IdContainer<TypeId, Comparison> {
         IdContainer::new::<Self>(Comparison::Equal(value.into()))
     }
 
+    #[must_use]
     fn not_equal(value: T) -> IdContainer<TypeId, Comparison> {
         IdContainer::new::<Self>(Comparison::NotEqual(value.into()))
     }
 
+    #[must_use]
     fn greater_than(value: T) -> IdContainer<TypeId, Comparison>
     where
         T: PartialOrd,
@@ -89,6 +92,7 @@ pub trait SensorComparison<T: Into<SensorValue>>: WorldSensorValue<T> + Any + Si
         IdContainer::new::<Self>(Comparison::GreaterThan(value.into()))
     }
 
+    #[must_use]
     fn less_than(value: T) -> IdContainer<TypeId, Comparison>
     where
         T: PartialOrd,
@@ -96,6 +100,42 @@ pub trait SensorComparison<T: Into<SensorValue>>: WorldSensorValue<T> + Any + Si
         IdContainer::new::<Self>(Comparison::LessThan(value.into()))
     }
 }
+pub trait SensorComparisonOption<U>: SensorComparison<Option<U>>
+where
+    SensorValue: From<Option<U>>,
+{
+    #[must_use]
+    fn is_some() -> IdContainer<TypeId, Comparison> {
+        IdContainer::new::<Self>(Comparison::IsSome)
+    }
+    #[must_use]
+    fn is_none() -> IdContainer<TypeId, Comparison> {
+        IdContainer::new::<Self>(Comparison::IsNone)
+    }
+}
+
+pub trait SensorComparisonBool: SensorComparison<bool>
+where
+    SensorValue: From<bool>,
+{
+    #[must_use]
+    fn is_true() -> IdContainer<TypeId, Comparison> {
+        IdContainer::new::<Self>(Comparison::Equal(SensorValue::Bool(true)))
+    }
+    #[must_use]
+    fn is_false() -> IdContainer<TypeId, Comparison> {
+        IdContainer::new::<Self>(Comparison::Equal(SensorValue::Bool(false)))
+    }
+}
+
+impl<T, U> SensorComparisonOption<U> for T
+where
+    T: SensorComparison<Option<U>>,
+    SensorValue: From<Option<U>>,
+{
+}
+
+impl<T> SensorComparisonBool for T where T: SensorComparison<bool> {}
 
 pub trait SensorEffect<T: Into<SensorValue>>: WorldSensorValue<T> + Any + Sized {
     fn set(value: T) -> IdContainer<TypeId, EffectValue> {

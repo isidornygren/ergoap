@@ -8,7 +8,7 @@ use bevy_ecs::{
 
 use crate::{
     Comparison,
-    id_container::{ComponentNotFound, IdContainer},
+    id_container::{BuildComponentId, ComponentNotFound, IdContainer},
     sensor_state::SensorState,
 };
 
@@ -42,7 +42,7 @@ impl GoalBuilder {
             requirements: self
                 .requirements
                 .iter()
-                .map(|requirement| requirement.build(world))
+                .map(|requirement| world.build_id_container(*requirement))
                 .collect::<Result<Vec<_>, _>>()?,
         })
     }

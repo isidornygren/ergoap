@@ -13,12 +13,6 @@ use crate::{
     current_action::CurrentActionCommands,
 };
 
-#[derive(Clone, PartialEq, Eq)]
-pub enum TargetConfig {
-    Proximity,
-    Target,
-}
-
 pub struct GotoTarget {
     pub(crate) next_action: Option<Box<dyn ActionProviderTrait>>,
     pub(crate) target: Entity,
@@ -77,13 +71,12 @@ pub fn finish_goto(
 ) -> Result {
     for (entity, goto_action, sensor_state) in &query {
         let sensor_state = sensor_state.get(
-            &goto_action
+            goto_action
                 .next_action()
                 .ok_or(GotoError::ActionNotFound)?
                 .target()
                 .as_ref()
-                .ok_or(GotoError::TargetNotFound)?
-                .id,
+                .ok_or(GotoError::TargetNotFound)?,
         );
         if let SensorValue::Target(Some(TargetValue { is_close, .. })) = sensor_state.unwrap()
             && *is_close

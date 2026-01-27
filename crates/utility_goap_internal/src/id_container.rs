@@ -3,7 +3,7 @@ use std::any::{Any, TypeId};
 use bevy_ecs::{component::ComponentId, world::World};
 use thiserror::Error;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct IdContainer<Id, Value> {
     pub(crate) value: Value,
     pub(crate) id: Id,
@@ -22,19 +22,24 @@ impl<Value> IdContainer<TypeId, Value> {
 #[error("Component with TypeId {0:?} not found in world")]
 pub struct ComponentNotFound(pub TypeId);
 
-impl<Value: Clone> IdContainer<TypeId, Value> {
-    pub fn build(
+pub trait BuildComponentId {
+    fn build_id_container<Value: Clone>(
         &self,
-        world: &World,
+        id_container: IdContainer<TypeId, Value>,
     ) -> Result<IdContainer<ComponentId, Value>, ComponentNotFound> {
-        let id = world
-            .components()
-            .get_id(self.id)
-            .ok_or(ComponentNotFound(self.id))?;
-
         Ok(IdContainer {
-            id,
-            value: self.value.clone(),
+            id: self.get_component_id(&id_container.id)?,
+            value: id_container.value.clone(),
         })
+    }
+
+    fn get_component_id(&self, type_id: &TypeId) -> Result<ComponentId, ComponentNotFound>;
+}
+
+impl BuildComponentId for &World {
+    fn get_component_id(&self, type_id: &TypeId) -> Result<ComponentId, ComponentNotFound> {
+        self.components()
+            .get_id(*type_id)
+            .ok_or(ComponentNotFound(*type_id))
     }
 }
