@@ -157,7 +157,7 @@ impl<C: Clone + Send + Sync + 'static> ActionProviderTrait for ActionProvider<C>
     fn preconditions_met(&self, sensor_values: &SensorState) -> bool {
         #[cfg(feature = "target")]
         if let Some(target) = &self.target
-            && sensor_values.get(&target).is_none_or(|v| !v.has_target())
+            && sensor_values.get(target).is_none_or(|v| !v.has_target())
         {
             return false;
         }

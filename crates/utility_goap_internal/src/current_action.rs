@@ -98,15 +98,15 @@ impl CurrentActionCommands for EntityCommands<'_> {
                     _ => None,
                 }
                 .expect("Current target not the correct value");
-                if !is_close {
+                if *is_close {
+                    action.insert_current_action(&mut entity_world);
+                } else {
                     entity_world.insert(CurrentAction {
                         action: GotoTarget {
                             next_action: Some(action),
                             target: *entity,
                         },
                     });
-                } else {
-                    action.insert_current_action(&mut entity_world);
                 }
             });
         } else {
