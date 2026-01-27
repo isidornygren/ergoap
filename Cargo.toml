@@ -28,6 +28,7 @@ pedantic = { level = "warn", priority = -1 }
 new-ret-no-self = { level = "allow", priority = 1 }
 type-complexity = { level = "allow", priority = 1 }
 match-wildcard-for-single-variants = { level = "allow", priority = 1 }
+enum-variant-names = { level = "allow", priority = 1 }
 
 [[example]]
 name = "basic"

@@ -1,5 +1,5 @@
 use bevy_ecs::{
-    component::Component,
+    component::{Component, ComponentId},
     entity::Entity,
     error::Result,
     query::{Changed, Or},
@@ -56,10 +56,12 @@ pub struct TargetedBy(Vec<Entity>);
 
 #[derive(Error, Debug)]
 pub enum GotoError {
-    #[error("Goto target not found")]
+    #[error("goto target not found")]
     TargetNotFound,
-    #[error("Goto action not found")]
-    ActionNotFound,
+    #[error("goto action not found")]
+    NextActionNotFound,
+    #[error("goto sensor state for component id {0:?} not found")]
+    SensorStateNotFound(ComponentId),
 }
 
 pub fn finish_goto(
@@ -70,20 +72,23 @@ pub fn finish_goto(
     >,
 ) -> Result {
     for (entity, goto_action, sensor_state) in &query {
-        let sensor_state = sensor_state.get(
-            goto_action
-                .next_action()
-                .ok_or(GotoError::ActionNotFound)?
-                .target()
-                .as_ref()
-                .ok_or(GotoError::TargetNotFound)?,
-        );
-        if let SensorValue::Target(Some(TargetValue { is_close, .. })) = sensor_state.unwrap()
+        let sensor_component_id = goto_action
+            .next_action()
+            .ok_or(GotoError::NextActionNotFound)?
+            .target()
+            .as_ref()
+            .ok_or(GotoError::TargetNotFound)?;
+        let sensor_state = sensor_state
+            .get(sensor_component_id)
+            .ok_or(GotoError::SensorStateNotFound(*sensor_component_id))?;
+        if let SensorValue::Target(Some(TargetValue { is_close, .. })) = sensor_state
             && *is_close
         {
-            commands
-                .entity(entity)
-                .insert_action(goto_action.next_action().ok_or(GotoError::ActionNotFound)?);
+            commands.entity(entity).insert_action(
+                goto_action
+                    .next_action()
+                    .ok_or(GotoError::NextActionNotFound)?,
+            );
         }
     }
     Ok(())
