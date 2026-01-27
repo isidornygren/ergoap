@@ -21,7 +21,7 @@ bevy = { version = "0.18.0", default-features = false, features = [
     "debug",
 ] }
 
-[lints.clippy]
+[workspace.lints.clippy]
 all = "warn"
 correctness = "deny"
 suspicious = "warn"

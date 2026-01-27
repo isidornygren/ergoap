@@ -40,7 +40,7 @@ struct FoodTarget(Option<TargetValue>);
 
 impl SetSensorValue<TargetValue> for FoodTarget {
     fn set_value(&mut self, value: TargetValue) {
-        self.0 = Some(value);
+        self.0 = Some(value)
     }
 }
 
@@ -236,17 +236,14 @@ struct Lcg {
 }
 
 impl Lcg {
-    const fn next(&mut self) -> u32 {
-        self.state = self
-            .state
-            .wrapping_mul(1_664_525)
-            .wrapping_add(1_013_904_223);
+    fn next(&mut self) -> u32 {
+        self.state = self.state.wrapping_mul(1664525).wrapping_add(1013904223);
         self.state
     }
 
     fn range_f32(&mut self, min: f32, max: f32) -> f32 {
         let normalized = self.next() as f32 / u32::MAX as f32;
-        normalized.mul_add(max - min, min)
+        min + normalized * (max - min)
     }
 }
 
