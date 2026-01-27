@@ -1,15 +1,30 @@
+//! A* pathfinding algorithm for GOAP planning.
+//!
+//! This module implements the A* search algorithm to find optimal action sequences
+//! that satisfy a goal. The algorithm explores possible action sequences, evaluating
+//! them based on actual cost and heuristic distance to the goal.
+
 use crate::{action_provider::ActionProviderTrait, goal::Goal, sensor_state::SensorState};
 use std::{
     cmp::Ordering,
     collections::{BinaryHeap, HashSet},
 };
 
+/// A search node representing a world state and the path taken to reach it.
+///
+/// Nodes are used internally by the A* algorithm to track explored states
+/// and reconstruct the optimal action sequence when a goal is found.
 #[derive(Debug, Clone, Default)]
 struct Node {
+    /// The world state at this node
     state: SensorState,
+    /// Index of the parent node in the search tree
     parent_index: Option<usize>,
+    /// Index of the action taken to reach this node
     action_taken: Option<usize>,
+    /// Actual cost from start to this node
     goal_cost: usize,
+    /// Estimated cost from this node to goal (heuristic)
     heuristic_cost: usize,
 }
 
@@ -43,6 +58,9 @@ impl Ord for Node {
     }
 }
 
+/// Calculate a hash for a hashable value.
+///
+/// Used to efficiently check if a state has already been explored during A* search.
 fn calculate_hash<T: std::hash::Hash>(t: &T) -> u64 {
     use std::hash::{DefaultHasher, Hasher};
 
@@ -52,6 +70,16 @@ fn calculate_hash<T: std::hash::Hash>(t: &T) -> u64 {
     hasher.finish()
 }
 
+/// Reconstruct the action sequence from start to goal by backtracking through nodes.
+///
+/// # Arguments
+///
+/// * `nodes` - All nodes explored during the search
+/// * `goal_index` - Index of the node that satisfied the goal
+///
+/// # Returns
+///
+/// A vector of action indices representing the optimal path from start to goal.
 fn reconstruct_path(nodes: &[Node], goal_index: usize) -> Vec<usize> {
     let mut path = Vec::new();
     let mut current_index = Some(goal_index);
@@ -68,6 +96,31 @@ fn reconstruct_path(nodes: &[Node], goal_index: usize) -> Vec<usize> {
     path
 }
 
+/// Find an optimal action sequence to achieve a goal using A* search.
+///
+/// This function implements the A* pathfinding algorithm to find the lowest-cost
+/// sequence of actions that satisfies the given goal. It explores possible action
+/// sequences, prioritizing paths with lower combined actual and heuristic costs.
+///
+/// # Arguments
+///
+/// * `start_state` - The initial world state to plan from
+/// * `actions` - Available actions that can be performed
+/// * `goal` - The goal to achieve
+///
+/// # Returns
+///
+/// * `Some(Vec<usize>)` - Indices of actions to perform in sequence to reach the goal
+/// * `None` - No valid plan exists to achieve the goal
+///
+/// # Algorithm
+///
+/// 1. Start with the initial state
+/// 2. Explore actions whose preconditions are met
+/// 3. Simulate applying each action to generate new states
+/// 4. Prioritize states with lower f-cost (g + h)
+/// 5. Return the first path that satisfies the goal
+/// 6. Skip already-explored states to avoid cycles
 pub fn astar_plan(
     start_state: &SensorState,
     actions: &Vec<&dyn ActionProviderTrait>,
