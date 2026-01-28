@@ -2924,16 +2924,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "macros"
-version = "0.1.0"
-dependencies = [
- "proc-macro-crate",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "malloc_buf"
 version = "0.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4533,7 +4523,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 
 [[package]]
-name = "utility-goap"
+name = "utility_goap"
 version = "0.1.0"
 dependencies = [
  "bevy",
@@ -4542,8 +4532,18 @@ dependencies = [
  "bevy_ecs",
  "bevy_reflect",
  "inventory",
- "macros",
  "thiserror 2.0.17",
+ "utility_goap_macros",
+]
+
+[[package]]
+name = "utility_goap_macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

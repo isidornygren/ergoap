@@ -1,7 +1,13 @@
 [package]
-name = "macros"
+name = "utility_goap_macros"
 version = "0.1.0"
 edition = "2024"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy", "ai", "goap", "utility", "target", "macros"]
+categories = ["game-development"]
+repository = "https://github.com/isidornygren/utility-goap"
+description = "Macros for the utility-goap project"
+readme = "README.md"
 
 [dependencies]
 proc-macro-crate = "3.4.0"

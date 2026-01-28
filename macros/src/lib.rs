@@ -8,7 +8,7 @@ fn generate_trait_registration(
     name: &Ident,
     register_call: proc_macro2::TokenStream,
 ) -> proc_macro2::TokenStream {
-    let crate_path = match crate_name("utility-goap").expect("utility-goap is not present") {
+    let crate_path = match crate_name("utility_goap").expect("utility_goap is not present") {
         FoundCrate::Itself => quote!(utility_goap),
         FoundCrate::Name(name) => {
             let ident = Ident::new(&name, Span::call_site());
