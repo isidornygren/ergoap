@@ -40,7 +40,7 @@ struct FoodTarget(Option<TargetValue>);
 
 impl SetSensorValue<TargetValue> for FoodTarget {
     fn set_value(&mut self, value: TargetValue) {
-        self.0 = Some(value)
+        self.0 = Some(value);
     }
 }
 
@@ -53,7 +53,7 @@ struct Hunger(f32);
 #[derive(Component, Debug, WorldSensor)]
 struct IsHungry(bool);
 
-#[derive(Scorer)]
+#[derive(Scorer, Default)]
 struct HungryScorer(f32);
 
 fn toggle_sensor(
@@ -180,7 +180,8 @@ fn actor_bundle(
             .with_requirement(IsHungry::is_true())
             .with_target::<FoodTarget>()
             .with_cost(1),
-        GoalProvider::from_requirement(HungryScorer(0.), LampSensor::equal(lamp_value)),
+        GoalProvider::new(HungryScorer::default()).with_requirement(LampSensor::equal(lamp_value)),
+        Picker::highest_scorer(),
         Transform::from_translation(position),
         Mesh2d(mesh),
         MeshMaterial2d(color),

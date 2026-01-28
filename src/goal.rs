@@ -30,7 +30,7 @@ pub fn on_insert_goal_builder(
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Default)]
 #[component(on_insert=on_insert_goal_builder)]
 pub struct GoalBuilder {
     requirements: Vec<IdContainer<TypeId, Comparison>>,
@@ -46,9 +46,13 @@ impl GoalBuilder {
                 .collect::<Result<Vec<_>, _>>()?,
         })
     }
+
+    pub fn push_requirement(&mut self, requirement: IdContainer<TypeId, Comparison>) {
+        self.requirements.push(requirement);
+    }
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone)]
 pub struct Goal {
     requirements: Vec<IdContainer<ComponentId, Comparison>>,
 }

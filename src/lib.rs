@@ -70,12 +70,16 @@ impl Plugin for UtilityGoapPlugin {
             .add_systems(First, |world: &mut World| register_trait_types(world));
         #[cfg(feature = "target")]
         app.add_systems(FixedPostUpdate, finish_goto);
+        #[cfg(feature = "utility")]
+        app.add_plugins(utility::plugin);
     }
 }
 
 pub mod prelude {
     #[cfg(feature = "utility")]
-    pub use crate::utility::{GoalProvider, GoalProviderTrait, Score, Scorer};
+    pub use crate::utility::{
+        GoalProvider, GoalProviderBuilder, GoalProviderTrait, Picker, Score, Scorer,
+    };
     pub use crate::{
         Planning, SensorUpdate, UtilityGoapPlugin,
         action_provider::{ActionProvider, ActionProviderBuilder, ActionProviderTrait},

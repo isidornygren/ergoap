@@ -2,7 +2,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     lifecycle::HookContext,
-    query::Changed,
+    query::{Changed, Or},
     system::{Commands, Query},
     world::{DeferredWorld, Ref},
 };
@@ -30,7 +30,10 @@ pub struct Plan(Vec<Box<dyn ActionProviderTrait>>);
 
 pub fn make_plan(
     mut commands: Commands,
-    query: Query<(Entity, &SensorState, &dyn ActionProviderTrait, &Goal), Changed<SensorState>>,
+    query: Query<
+        (Entity, &SensorState, &dyn ActionProviderTrait, &Goal),
+        Or<(Changed<SensorState>, Changed<Goal>)>,
+    >,
 ) {
     for (entity, sensor_values, actions, goal) in query.iter() {
         let dyn_actions: Vec<&dyn ActionProviderTrait> =

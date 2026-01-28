@@ -17,6 +17,8 @@ use crate::{
     id_container::{BuildComponentId, ComponentNotFound},
     sensor_state::SensorState,
 };
+#[cfg(feature = "target")]
+use crate::{TargetValue, WorldSensorValue};
 
 #[queryable]
 pub trait ActionProviderTrait: Send + Sync {
@@ -77,7 +79,7 @@ impl<C> ActionProviderBuilder<C> {
 
     #[cfg(feature = "target")]
     #[must_use]
-    pub const fn with_target<T: Any>(mut self) -> Self {
+    pub const fn with_target<T: Any + WorldSensorValue<Option<TargetValue>>>(mut self) -> Self {
         self.target = Some(TypeId::of::<T>());
         self
     }
