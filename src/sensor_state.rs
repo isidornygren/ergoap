@@ -1,11 +1,9 @@
-use std::collections::HashMap;
-
-use bevy_ecs::component::{Component, ComponentId};
-
 use crate::SensorValue;
+use bevy_ecs::component::{Component, ComponentId};
+use fxhash::FxHashMap;
 
 #[derive(Component, Debug, Default, PartialEq, Eq, Clone)]
-pub struct SensorState(pub(crate) HashMap<ComponentId, SensorValue>);
+pub struct SensorState(pub(crate) FxHashMap<ComponentId, SensorValue>);
 
 impl std::hash::Hash for SensorState {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
@@ -21,7 +19,7 @@ impl std::hash::Hash for SensorState {
 impl SensorState {
     #[must_use]
     pub fn new() -> Self {
-        Self(HashMap::new())
+        Self(FxHashMap::default())
     }
 
     #[must_use]
