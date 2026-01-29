@@ -1,6 +1,6 @@
-# Utility GOAP
+# ERGOAP
 
-Utility GOAP is an implementation of a GOAP (Goal Oriented Action Planning) system outlined in [this talk](https://www.youtube.com/watch?v=PaOLBOuyswI) with focus on ergonomics and ease-of-use.
+ERGOAP is an implementation of a GOAP (Goal Oriented Action Planning) system outlined in [this talk](https://www.youtube.com/watch?v=PaOLBOuyswI) with focus on ergonomics and ease-of-use, built for Bevy.
 
 It is heavily inspired by the excellent [bevy-dogoap](https://github.com/victorb/dogoap) and [big-brain](https://codeberg.org/zkat/big-brain) which are also built for Bevy. What separates this implementation is the focus on having _all_ components as Bevy components in the actor (e.g not in a hierarchical structure) without relying on macros for generating the action composition. The rationale for this is that action providers and goals should be easily queried and modified in real time.
 

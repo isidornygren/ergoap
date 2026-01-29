@@ -1,5 +1,5 @@
 use bevy::{ecs::component::Mutable, prelude::*};
-use utility_goap::prelude::*;
+use ergoap::prelude::*;
 
 trait SetSensorValue<T> {
     fn set_value(&mut self, value: T);

@@ -1,12 +1,12 @@
 [package]
-name = "utility_goap_macros"
+name = "ergoap_macros"
 version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy", "ai", "goap", "utility", "target", "macros"]
 categories = ["game-development"]
-repository = "https://github.com/isidornygren/utility-goap"
-description = "Macros for the utility-goap project"
+repository = "https://github.com/isidornygren/ergoap"
+description = "Macros for the ergoap project"
 readme = "README.md"
 
 [dependencies]

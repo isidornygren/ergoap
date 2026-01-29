@@ -95,5 +95,5 @@ pub mod prelude {
     };
     #[cfg(feature = "target")]
     pub use crate::{target::GotoTarget, world_sensor::TargetValue};
-    pub use utility_goap_macros::*;
+    pub use ergoap_macros::*;
 }

@@ -1,11 +1,11 @@
 [package]
-name = "utility_goap"
+name = "ergoap"
 version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
-keywords = ["bevy", "ai", "goap", "utility", "target"]
+keywords = ["bevy", "ai", "goap", "utility", "target", "ergonomic", "ergoap"]
 categories = ["game-development"]
-repository = "https://github.com/isidornygren/utility-goap"
+repository = "https://github.com/isidornygren/ergoap"
 description = "an implementation of a GOAP (Goal Oriented Action Planning) system with focus on ergonomics and ease-of-use."
 readme = "README.md"
 
@@ -19,7 +19,7 @@ bevy_reflect = { version = "0.18.0" }
 bevy-trait-query = "0.18.0"
 thiserror = "2.0.17"
 inventory = "0.3.21"
-utility_goap_macros = { path = "./macros", version = "0.1.0" }
+ergoap_macros = { path = "./macros", version = "0.1.0" }
 
 [dev-dependencies]
 bevy = { version = "0.18.0", default-features = false, features = [

@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use utility_goap::prelude::*;
+use ergoap::prelude::*;
 
 #[derive(Action, Clone)]
 struct SomeAction;
