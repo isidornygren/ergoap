@@ -26,6 +26,8 @@ bevy = { version = "0.18.0", default-features = false, features = [
     "2d",
     "debug",
 ] }
+criterion = "0.8.1"
+seq-macro = "0.3.6"
 
 [lints.clippy]
 all = "warn"
@@ -42,6 +44,10 @@ match-wildcard-for-single-variants = { level = "allow", priority = 1 }
 enum-variant-names = { level = "allow", priority = 1 }
 needless_pass_by_value = { level = "allow", priority = 1 }
 derive-ord-xor-partial-ord = { level = "allow", priority = 1 }
+
+[[bench]]
+name = "bench_action_provider"
+harness = false
 
 [[example]]
 name = "basic"
