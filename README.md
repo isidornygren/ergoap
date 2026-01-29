@@ -26,7 +26,15 @@ struct FieldSensor {
 commands.spawn((SomeSensor(true), FieldSensor { value: true }));
 ```
 
-You will then have to manually update the value in the sensor that the planner will consume.
+You will then have to manually update the value in the sensor that the planner will consume:
+
+```rust
+fn update_sensor(query: Query<&mut SomeSensor>, world_component: Single<&WorldComponent>){
+    for mut sensor in query.iter_mut() {
+        sensor.0 = world_component.is_active();
+    }
+}
+```
 
 ### Actions
 
@@ -47,11 +55,21 @@ let action_provider = ActionProvider::new(Perform)
 commands.spawn((SomeSensor(false), action_provider));
 ```
 
-A quirk with `ActionProvider`s are that only one component of type `ActionProvider<SomeAction>` can exist tied to an entity, so this limits you to create a new struct for each action (within the same entity).
+A quirk with `ActionProvider`s is that only one component of type `ActionProvider<SomeAction>` can exist tied to an entity, so this limits you to create a new struct for each action (within the same entity).
+
+When an `ActionProvider` is selected by the planner, it will spawn a `CurrentAction<A>` where `A` is the action passed when creating the `ActionProvider`, these can then be used in a system to perform the action:
+
+```rust
+fn perform_action(query: Query<&CurrentAction<Perform>>){
+    for current_action in query.iter() {
+        // Perform an action here
+    }
+}
+```
 
 ### Goals
 
-The goal is the state that the planner should strive for. There can only exist one goal per entity (since it is a component).
+The goal is the state that the planner should strive for. There can only exist one goal per entity.
 
 ```rust
 let goal = Goal::from_requirement(SomeSensor::is_true());
@@ -59,9 +77,13 @@ let goal = Goal::from_requirement(SomeSensor::is_true());
 commands.spawn(goal);
 ```
 
+The planner will then try to find the best path of actions in order to achieve the goal.
+
 ## Features
 
 ### `utility` (enabled by default)
+
+_This feature is not fully implemented yet._
 
 Enable the utility feature in order to use `GoalProviders` which uses a `Score` in order to determine the current Goal.
 
