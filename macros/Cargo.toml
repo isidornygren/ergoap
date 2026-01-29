@@ -7,7 +7,6 @@ keywords = ["bevy", "ai", "goap", "utility", "target", "macros"]
 categories = ["game-development"]
 repository = "https://github.com/isidornygren/ergoap"
 description = "Macros for the ergoap project"
-readme = "README.md"
 
 [dependencies]
 proc-macro-crate = "3.4.0"
