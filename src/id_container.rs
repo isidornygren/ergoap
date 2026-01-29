@@ -3,7 +3,7 @@ use std::any::{Any, TypeId};
 use bevy_ecs::{component::ComponentId, world::World};
 use thiserror::Error;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct IdContainer<Id, Value> {
     pub(crate) value: Value,
     pub(crate) id: Id,

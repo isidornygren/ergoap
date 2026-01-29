@@ -284,7 +284,7 @@ fn setup(mut commands: Commands) {
 pub fn main() {
     let mut app = App::new();
 
-    app.add_plugins((DefaultPlugins, UtilityGoapPlugin))
+    app.add_plugins((DefaultPlugins, ErgoapPlugin))
         .insert_resource(FoodSpawnTimer {
             timer: Timer::from_seconds(5.0, TimerMode::Repeating),
         })

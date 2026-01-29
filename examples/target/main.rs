@@ -97,7 +97,7 @@ fn setup(mut commands: Commands) {
 pub fn main() {
     let mut app = App::new();
 
-    app.add_plugins((DefaultPlugins, UtilityGoapPlugin))
+    app.add_plugins((DefaultPlugins, ErgoapPlugin))
         .add_systems(Startup, setup)
         .add_systems(FixedUpdate, execute_action)
         .add_systems(Update, goto_target)

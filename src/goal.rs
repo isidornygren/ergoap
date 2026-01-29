@@ -67,9 +67,9 @@ impl Goal {
 
     #[must_use]
     pub fn is_satisfied(&self, sensor_state: &SensorState) -> bool {
-        self.requirements
-            .iter()
-            .all(|IdContainer { id, value }| sensor_state.get(id).is_some_and(|v| value.compare(v)))
+        self.requirements.iter().all(|IdContainer { id, value }| {
+            sensor_state.get(id).is_some_and(|v| value.compare(*v))
+        })
     }
 
     #[must_use]
@@ -77,7 +77,7 @@ impl Goal {
         self.requirements
             .iter()
             .filter(|IdContainer { id, value }| {
-                sensor_state.get(id).is_none_or(|v| !value.compare(v))
+                sensor_state.get(id).is_none_or(|v| !value.compare(*v))
             })
             .count()
     }

@@ -6,6 +6,19 @@ It is heavily inspired by the excellent [bevy-dogoap](https://github.com/victorb
 
 ## Usage
 
+Add the `ErgoapPlugin` to the Bevy app.
+
+```rust
+use bevy::prelude::*;
+use ergoap::prelude::*;
+
+pub fn main() {
+    let mut app = App::new();
+
+    app.add_plugins((DefaultPlugins, ErgoapPlugin));
+}
+```
+
 ### WorldSensors
 
 A world sensor collates data from the world which can be used to interpret what actions or goals are valid. A `WorldSensor` can be constructed like so:

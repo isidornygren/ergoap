@@ -119,14 +119,44 @@ impl<C> ActionProviderBuilder<C> {
     }
 }
 
+/// An ``ActionProvider`` provides the planner with actions that can be selected and executed.
+/// It returns an ``ActionProviderBuilder`` which can be inserted in an entity.
+///
+/// # Example
+/// ```rust
+/// # use ergoap::prelude::*;
+/// # use bevy::prelude::*;
+///
+/// #[derive(WorldSensor, Component)]
+/// struct SomeSensor(bool);
+///
+/// #[derive(Action, Clone)]
+/// struct SomeAction;
+///
+/// let action_provider = ActionProvider::new(SomeAction)
+///    .with_requirement(SomeSensor::is_false())
+///    .with_effect(SomeSensor::set(true))
+///    .with_cost(2);
+///
+/// assert_eq!(action_provider.requirements, vec![SomeSensor::is_false()]);
+/// assert_eq!(action_provider.effects, vec![SomeSensor::set(true)]);
+/// assert_eq!(action_provider.cost, 2);
+/// ```
 #[derive(Component, Clone)]
 #[require(SensorState)]
 pub struct ActionProvider<C> {
+    /// The action that will spawn in the entity when the planner has chosen this ``ActionProvider``.
     pub action: C,
+    /// The cost of the action, the higher the cost, the more expensive the action.
     pub cost: usize,
+    /// The state requirements for this action to be valid.
+    /// If _all_ requirements are not met, the action cannot be selected.
     pub requirements: Vec<IdContainer<ComponentId, Comparison>>,
+    /// The state effects of this action.
     pub effects: Vec<IdContainer<ComponentId, EffectValue>>,
     #[cfg(feature = "target")]
+    /// The target of the action, if the ``TargetValue`` does not have an entity it will not be able to be chosen.
+    /// If the ``TargetValue``s ``is_close`` field is not ``true``, it will spawn a ``CurrentAction<GotoTarget>``.
     pub target: Option<ComponentId>,
 }
 
@@ -164,7 +194,7 @@ impl<C: Clone + Send + Sync + 'static> ActionProviderTrait for ActionProvider<C>
             return false;
         }
         self.requirements.iter().all(|IdContainer { id, value }| {
-            sensor_values.get(id).is_some_and(|v| value.compare(v))
+            sensor_values.get(id).is_some_and(|v| value.compare(*v))
         })
     }
 

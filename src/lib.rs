@@ -56,9 +56,9 @@ pub struct SensorUpdate;
 #[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Planning;
 
-pub struct UtilityGoapPlugin;
+pub struct ErgoapPlugin;
 
-impl Plugin for UtilityGoapPlugin {
+impl Plugin for ErgoapPlugin {
     fn build(&self, app: &mut App) {
         app.init_schedule(SensorUpdate).init_schedule(Planning);
         {
@@ -81,7 +81,7 @@ pub mod prelude {
         GoalProvider, GoalProviderBuilder, GoalProviderTrait, Picker, Score, Scorer,
     };
     pub use crate::{
-        Planning, SensorUpdate, UtilityGoapPlugin,
+        ErgoapPlugin, Planning, SensorUpdate,
         action_provider::{ActionProvider, ActionProviderBuilder, ActionProviderTrait},
         auto_register::{AutomaticTraitRegistrations, RegisterComponentAs},
         comparison::Comparison,
