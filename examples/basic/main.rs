@@ -71,13 +71,13 @@ fn toggle_sensor(
 }
 
 fn update_lamp_sensor(lamp: Single<&Lamp, Changed<Lamp>>, mut query: Query<&mut LampSensor>) {
-    for mut sensor in query.iter_mut() {
+    for mut sensor in &mut query {
         sensor.0 = lamp.status;
     }
 }
 
 fn update_hunger(mut query: Query<(&mut Hunger, &mut IsHungry)>, time: Res<Time<Virtual>>) {
-    for (mut hunger, mut is_hungry) in query.iter_mut() {
+    for (mut hunger, mut is_hungry) in &mut query {
         hunger.0 += time.delta_secs();
         is_hungry.0 = hunger.0 > 10.;
     }
@@ -91,7 +91,7 @@ fn update_target<
     target: Query<Entity, With<Target>>,
     transforms: Query<&Transform>,
 ) {
-    for (entity, mut target_sensor) in query.iter_mut() {
+    for (entity, mut target_sensor) in &mut query {
         if let Some((target, distance)) = target
             .iter()
             .map(|target_entity| {
@@ -121,7 +121,7 @@ fn eat_food(
     mut query: Query<(&FoodTarget, &mut Hunger), With<CurrentAction<EatFoodAction>>>,
     mut commands: Commands,
 ) {
-    for (food_target, mut weariness) in query.iter_mut() {
+    for (food_target, mut weariness) in &mut query {
         if let Some(target) = food_target.0 {
             weariness.0 = 0.0;
             commands.entity(target.entity).despawn();
@@ -134,7 +134,7 @@ fn goto(
     mut transforms: Query<&mut Transform>,
     time: Res<Time<Virtual>>,
 ) {
-    for (entity, goto_action) in query.iter_mut() {
+    for (entity, goto_action) in &mut query {
         if let Ok([mut transform, target_transform]) =
             transforms.get_many_mut([entity, goto_action.target()])
         {
@@ -237,14 +237,18 @@ struct Lcg {
 }
 
 impl Lcg {
-    fn next(&mut self) -> u32 {
-        self.state = self.state.wrapping_mul(1664525).wrapping_add(1013904223);
+    const fn next(&mut self) -> u32 {
+        self.state = self
+            .state
+            .wrapping_mul(1_664_525)
+            .wrapping_add(1_013_904_223);
         self.state
     }
 
     fn range_f32(&mut self, min: f32, max: f32) -> f32 {
+        #[allow(clippy::cast_precision_loss)]
         let normalized = self.next() as f32 / u32::MAX as f32;
-        min + normalized * (max - min)
+        normalized.mul_add(max - min, min)
     }
 }
 
@@ -256,6 +260,7 @@ fn spawn_food(
     time: Res<Time<Virtual>>,
 ) {
     let mut rng = Lcg {
+        #[allow(clippy::cast_possible_truncation)]
         state: time.elapsed().as_nanos() as u32,
     };
     food_spawn_timer.timer.tick(time.delta());

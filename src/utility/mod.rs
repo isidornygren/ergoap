@@ -13,6 +13,6 @@ pub trait Scorer {
     fn score(&self) -> Score;
 }
 
-pub(crate) fn plugin(app: &mut App) {
+pub fn plugin(app: &mut App) {
     app.add_systems(Update, picking_system);
 }
