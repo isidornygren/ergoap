@@ -29,7 +29,7 @@ commands.spawn((SomeSensor(true), FieldSensor { value: true }));
 You will then have to manually update the value in the sensor that the planner will consume:
 
 ```rust
-fn update_sensor(query: Query<&mut SomeSensor>, world_component: Single<&WorldComponent>){
+fn update_sensor(mut query: Query<&mut SomeSensor>, world_component: Single<&WorldComponent>){
     for mut sensor in query.iter_mut() {
         sensor.0 = world_component.is_active();
     }
@@ -47,7 +47,7 @@ struct Perform;
 let action_provider = ActionProvider::new(Perform)
     .with_requirement(SomeSensor::is_false())
     .with_effect(SomeSensor::set(true))
-    // The cost of the action is by default 1, a higher cost
+    // The cost of the action is by default 1, a higher cost will be more expensive when planning.
     .with_cost(2);
 
 // Add an action provider like any other component, this will fail during runtime if
@@ -62,7 +62,17 @@ When an `ActionProvider` is selected by the planner, it will spawn a `CurrentAct
 ```rust
 fn perform_action(query: Query<&CurrentAction<Perform>>){
     for current_action in query.iter() {
-        // Perform an action here
+        // Perform an action here.
+    }
+}
+```
+
+You can modify the action provider if you want to update the cost or requirements:
+
+```rust
+fn update_action_cost(mut query: Query<&mut ActionProvider<Perform>>){
+    for mut action_provider in query.iter_mut() {
+        action_provider.cost += 1;
     }
 }
 ```
