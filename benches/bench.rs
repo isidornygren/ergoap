@@ -84,31 +84,39 @@ fn bench_sensor_update(c: &mut Criterion) {
     let mut group = c.benchmark_group("sensor_update");
 
     for entity_count in [1, 10, 50, 100] {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(entity_count),
-            &entity_count,
-            |b, &count| {
-                b.iter_batched(
-                    || {
-                        let mut app = helpers::setup_app();
-                        setup_actions(&mut app);
+        for (path_name, sensor_depth) in [("short", 1), ("long", 99)] {
+            group.bench_with_input(
+                BenchmarkId::new(path_name, entity_count),
+                &(entity_count, sensor_depth),
+                |b, &(count, sensor_depth)| {
+                    b.iter_batched(
+                        || {
+                            let mut app = helpers::setup_app();
+                            setup_actions(&mut app);
 
-                        for _ in 0..count {
-                            let mut entity_commands = spawn_with_sensors(app.world_mut());
-                            entity_commands.insert(Goal::from_requirement(Sensor99::is_true()));
-                        }
+                            for _ in 0..count {
+                                let mut entity_commands = spawn_with_sensors(app.world_mut());
+                                entity_commands.insert(Goal::from_requirement(
+                                    if sensor_depth == 1 {
+                                        Sensor1::is_true()
+                                    } else {
+                                        Sensor99::is_true()
+                                    },
+                                ));
+                            }
 
-                        app.world_mut().flush();
-                        app.update();
-                        app
-                    },
-                    |mut app| {
-                        app.world_mut().run_schedule(Planning);
-                    },
-                    BatchSize::SmallInput,
-                );
-            },
-        );
+                            app.world_mut().flush();
+                            app.update();
+                            app
+                        },
+                        |mut app| {
+                            app.world_mut().run_schedule(Planning);
+                        },
+                        BatchSize::SmallInput,
+                    );
+                },
+            );
+        }
     }
 
     group.finish();

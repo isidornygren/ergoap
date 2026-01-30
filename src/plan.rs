@@ -3,7 +3,7 @@ use bevy_ecs::{
     entity::Entity,
     lifecycle::HookContext,
     query::{Changed, Or},
-    system::{Commands, Query},
+    system::{ParallelCommands, Query},
     world::{DeferredWorld, Ref},
 };
 
@@ -29,29 +29,35 @@ pub fn on_insert_plan(mut world: DeferredWorld, HookContext { entity, .. }: Hook
 pub struct Plan(Vec<Box<dyn ActionProviderTrait>>);
 
 pub fn make_plan(
-    mut commands: Commands,
+    par_commands: ParallelCommands,
     query: Query<
         (Entity, &SensorState, &dyn ActionProviderTrait, &Goal),
         Or<(Changed<SensorState>, Changed<Goal>)>,
     >,
 ) {
-    for (entity, sensor_values, actions, goal) in query.iter() {
-        let dyn_actions: Vec<&dyn ActionProviderTrait> =
-            actions.iter().map(Ref::into_inner).collect();
-        if let Some(plan) = astar_plan(&sensor_values.to_owned(), &dyn_actions, goal) {
-            let plan_actions = plan
-                .into_iter()
-                .filter_map(|index| dyn_actions.get(index))
-                .map(|action| action.clone_box())
-                .rev()
-                .collect();
+    query
+        .par_iter()
+        .for_each(|(entity, sensor_values, actions, goal)| {
+            let dyn_actions: Vec<&dyn ActionProviderTrait> =
+                actions.iter().map(Ref::into_inner).collect();
+            if let Some(plan) = astar_plan(&sensor_values.to_owned(), &dyn_actions, goal) {
+                let plan_actions = plan
+                    .into_iter()
+                    .filter_map(|index| dyn_actions.get(index))
+                    .map(|action| action.clone_box())
+                    .rev()
+                    .collect();
 
-            commands.entity(entity).insert(Plan(plan_actions));
-        } else {
-            commands
-                .entity(entity)
-                .remove::<Plan>()
-                .despawn_current_action();
-        }
-    }
+                par_commands.command_scope(|mut commands| {
+                    commands.entity(entity).insert(Plan(plan_actions));
+                });
+            } else {
+                par_commands.command_scope(|mut commands| {
+                    commands
+                        .entity(entity)
+                        .remove::<Plan>()
+                        .despawn_current_action();
+                });
+            }
+        });
 }
