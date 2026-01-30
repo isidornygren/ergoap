@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
+use criterion::{BatchSize, BenchmarkId, Criterion, criterion_group, criterion_main};
 use ergoap::prelude::*;
 use std::hint::black_box;
 
@@ -81,28 +81,41 @@ macro_rules! sensor_benchmark {
 sensor_benchmark!(100);
 
 fn bench_sensor_update(c: &mut Criterion) {
-    c.bench_function("sensor_update", |b| {
-        b.iter_batched(
-            || {
-                let mut app = helpers::setup_app();
-                setup_actions(&mut app);
-                {
-                    let mut entity_commands = spawn_with_sensors(app.world_mut());
-                    entity_commands.insert(Goal::from_requirement(Sensor99::is_true()));
-                }
-                app.world_mut().flush();
-                app
+    let mut group = c.benchmark_group("sensor_update");
+
+    for entity_count in [1, 10, 50, 100] {
+        group.bench_with_input(
+            BenchmarkId::from_parameter(entity_count),
+            &entity_count,
+            |b, &count| {
+                b.iter_batched(
+                    || {
+                        let mut app = helpers::setup_app();
+                        setup_actions(&mut app);
+
+                        for _ in 0..count {
+                            let mut entity_commands = spawn_with_sensors(app.world_mut());
+                            entity_commands.insert(Goal::from_requirement(Sensor99::is_true()));
+                        }
+
+                        app.world_mut().flush();
+                        app.update();
+                        app
+                    },
+                    |mut app| {
+                        app.world_mut().run_schedule(Planning);
+                    },
+                    BatchSize::SmallInput,
+                );
             },
-            |mut app| {
-                for _ in 0..100 {
-                    app.update();
-                    app.world_mut().run_schedule(Planning);
-                }
-            },
-            BatchSize::SmallInput,
         );
-    });
+    }
+
+    group.finish();
 }
 
-criterion_group!(benches, bench_spawn_action_provider, bench_sensor_update);
+criterion_group!(
+    benches,
+    /*bench_spawn_action_provider,*/ bench_sensor_update
+);
 criterion_main!(benches);

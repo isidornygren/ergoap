@@ -9,6 +9,7 @@ use bevy_ecs::{
     world::{DeferredWorld, EntityWorldMut, World},
 };
 use bevy_trait_query::queryable;
+use bitvec::vec::BitVec;
 
 use crate::{
     Comparison, IdContainer,
@@ -23,6 +24,7 @@ use crate::{TargetValue, WorldSensorValue};
 #[queryable]
 pub trait ActionProviderTrait: Send + Sync {
     fn apply(&self, sensor_values: &mut SensorState);
+    fn apply_to_bitvec(&self, sensor_state: &SensorState, bitvec: &mut BitVec);
     fn preconditions_met(&self, _sensor_values: &SensorState) -> bool;
     fn cost(&self) -> usize;
     fn insert_current_action(&self, entity_world: &mut EntityWorldMut);
@@ -182,6 +184,27 @@ impl<C: Clone + Send + Sync + 'static> ActionProviderTrait for ActionProvider<C>
         {
             match effect_value {
                 EffectValue::Set(value) => sensor_values.insert(*id, *value),
+            }
+        }
+    }
+
+    fn apply_to_bitvec(&self, sensor_state: &SensorState, bitvec: &mut BitVec) {
+        for IdContainer {
+            id,
+            value: effect_value,
+        } in &self.effects
+        {
+            match effect_value {
+                EffectValue::Set(value) => {
+                    if let Some((index, _)) = sensor_state
+                        .keys
+                        .iter()
+                        .enumerate()
+                        .find(|(_, key)| **key == id.index())
+                    {
+                        bitvec.set(index, value.as_bool());
+                    }
+                }
             }
         }
     }

@@ -42,6 +42,15 @@ impl SensorValue {
             _ => false,
         }
     }
+
+    #[must_use]
+    pub const fn as_bool(&self) -> bool {
+        match self {
+            Self::Bool(value) => *value,
+            Self::Target(Some(_)) => true,
+            _ => false,
+        }
+    }
 }
 
 impl From<bool> for SensorValue {
@@ -82,22 +91,6 @@ pub trait SensorComparison<T: Into<SensorValue>>: WorldSensorValue<T> + Any + Si
     #[must_use]
     fn not_equal(value: T) -> IdContainer<TypeId, Comparison> {
         IdContainer::new::<Self>(Comparison::NotEqual(value.into()))
-    }
-
-    #[must_use]
-    fn greater_than(value: T) -> IdContainer<TypeId, Comparison>
-    where
-        T: PartialOrd,
-    {
-        IdContainer::new::<Self>(Comparison::GreaterThan(value.into()))
-    }
-
-    #[must_use]
-    fn less_than(value: T) -> IdContainer<TypeId, Comparison>
-    where
-        T: PartialOrd,
-    {
-        IdContainer::new::<Self>(Comparison::LessThan(value.into()))
     }
 }
 pub trait SensorComparisonOption<U>: SensorComparison<Option<U>>
@@ -155,7 +148,7 @@ pub fn collect_sensor_values(
     components: &Components,
 ) -> Result {
     for (entity, entity_sensors, maybe_previous_state) in &query {
-        let mut sensor_state = SensorState::new();
+        let mut sensor_state = SensorState::with_capacity(entity_sensors.iter().count());
 
         for sensor in entity_sensors {
             let value = sensor.sensor_value();

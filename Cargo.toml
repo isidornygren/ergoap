@@ -21,6 +21,7 @@ thiserror = "2.0.17"
 inventory = "0.3.21"
 ergoap_macros = { path = "./macros", version = "0.1.0" }
 fxhash = "0.2.1"
+bitvec = "1.0.1"
 
 [dev-dependencies]
 bevy = { version = "0.18.0", default-features = false, features = [
@@ -47,8 +48,11 @@ needless_pass_by_value = { level = "allow", priority = 1 }
 derive-ord-xor-partial-ord = { level = "allow", priority = 1 }
 
 [[bench]]
-name = "bench_action_provider"
+name = "bench"
 harness = false
+
+[profile.bench]
+debug = true
 
 [[example]]
 name = "basic"

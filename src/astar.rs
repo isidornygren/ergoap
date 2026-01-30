@@ -1,3 +1,5 @@
+use bitvec::vec::BitVec;
+
 use crate::{action_provider::ActionProviderTrait, goal::Goal, sensor_state::SensorState};
 use std::{
     cmp::Ordering,
@@ -7,6 +9,7 @@ use std::{
 #[derive(Debug, Clone, Default)]
 struct Node {
     state: SensorState,
+    bit_vec_state: BitVec,
     parent_index: Option<usize>,
     action_taken: Option<usize>,
     goal_cost: usize,
@@ -43,15 +46,6 @@ impl Ord for Node {
     }
 }
 
-fn calculate_hash<T: std::hash::Hash>(t: &T) -> u64 {
-    use std::hash::{DefaultHasher, Hasher};
-
-    let mut hasher = DefaultHasher::new();
-    t.hash(&mut hasher);
-
-    hasher.finish()
-}
-
 fn reconstruct_path(nodes: &[Node], goal_index: usize) -> Vec<usize> {
     let mut path = Vec::new();
     let mut current_index = Some(goal_index);
@@ -78,6 +72,7 @@ pub fn astar_plan(
 
     let start_node = Node {
         state: start_state.clone(),
+        bit_vec_state: start_state.bit_vec(),
         heuristic_cost: goal.distance(start_state),
         ..Default::default()
     };
@@ -93,11 +88,10 @@ pub fn astar_plan(
             return if path.is_empty() { None } else { Some(path) };
         }
 
-        let state_hash = calculate_hash(&all_nodes[current_index].state);
-        if closed_set.contains(&state_hash) {
+        if closed_set.contains(&all_nodes[current_index].bit_vec_state) {
             continue;
         }
-        closed_set.insert(state_hash);
+        closed_set.insert(all_nodes[current_index].bit_vec_state.clone());
 
         for (action_index, action) in actions.iter().enumerate() {
             if !action.preconditions_met(&all_nodes[current_index].state) {
@@ -105,16 +99,18 @@ pub fn astar_plan(
             }
 
             let mut new_state = all_nodes[current_index].state.clone();
+            let mut new_bitvec = all_nodes[current_index].bit_vec_state.clone();
             action.apply(&mut new_state);
+            action.apply_to_bitvec(&new_state, &mut new_bitvec);
 
-            let new_state_hash = calculate_hash(&new_state);
-            if closed_set.contains(&new_state_hash) {
+            if closed_set.contains(&new_bitvec) {
                 continue;
             }
             let heuristic_cost = goal.distance(&new_state);
 
             let new_node = Node {
                 state: new_state,
+                bit_vec_state: new_bitvec,
                 parent_index: Some(current_index),
                 action_taken: Some(action_index),
                 goal_cost: all_nodes[current_index].goal_cost + action.cost(),

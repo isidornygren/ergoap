@@ -12,8 +12,6 @@ use crate::SensorValue;
 pub enum Comparison {
     Equal(SensorValue),
     NotEqual(SensorValue),
-    GreaterThan(SensorValue),
-    LessThan(SensorValue),
     IsSome,
     IsNone,
 }
@@ -24,8 +22,6 @@ impl Comparison {
         match self {
             Self::Equal(v) => *v == value.into(),
             Self::NotEqual(v) => *v != value.into(),
-            Self::GreaterThan(v) => *v < value.into(),
-            Self::LessThan(v) => *v > value.into(),
             Self::IsSome => matches!(value.into(), SensorValue::Target(Some(_))),
             Self::IsNone => matches!(value.into(), SensorValue::Target(None)),
         }
