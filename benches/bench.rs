@@ -122,8 +122,5 @@ fn bench_sensor_update(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(
-    benches,
-    /*bench_spawn_action_provider,*/ bench_sensor_update
-);
+criterion_group!(benches, bench_spawn_action_provider, bench_sensor_update);
 criterion_main!(benches);
