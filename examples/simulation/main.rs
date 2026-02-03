@@ -1,8 +1,13 @@
 use bevy::{ecs::component::Mutable, prelude::*};
+use bevy_ecs::query::QueryFilter;
 use ergoap::prelude::*;
 
 trait SetSensorValue<T> {
     fn set_value(&mut self, value: T);
+    fn clear(&mut self);
+    fn max_distance(&self) -> Option<f32> {
+        None
+    }
 }
 
 #[derive(Component, WorldSensor)]
@@ -14,6 +19,9 @@ struct LampTarget(Option<TargetValue>);
 impl SetSensorValue<TargetValue> for LampTarget {
     fn set_value(&mut self, value: TargetValue) {
         self.0 = Some(value);
+    }
+    fn clear(&mut self) {
+        self.0 = None;
     }
 }
 
@@ -27,6 +35,12 @@ struct ToggleLampAction {
 
 #[derive(Clone, Action)]
 struct EatFoodAction;
+
+#[derive(Clone, Action)]
+struct RunAway;
+
+#[derive(Clone, Action)]
+struct Idle;
 
 #[derive(Component)]
 struct Lamp {
@@ -42,7 +56,33 @@ impl SetSensorValue<TargetValue> for FoodTarget {
     fn set_value(&mut self, value: TargetValue) {
         self.0 = Some(value);
     }
+    fn clear(&mut self) {
+        self.0 = None;
+    }
 }
+
+#[derive(Component, WorldSensor, Default)]
+struct EnemyTarget(Option<TargetValue>);
+
+impl SetSensorValue<TargetValue> for EnemyTarget {
+    fn set_value(&mut self, value: TargetValue) {
+        self.0 = Some(value);
+    }
+
+    fn clear(&mut self) {
+        self.0 = None;
+    }
+
+    fn max_distance(&self) -> Option<f32> {
+        Some(50.0)
+    }
+}
+
+#[derive(Component)]
+struct BlueTeam;
+
+#[derive(Component)]
+struct RedTeam;
 
 #[derive(Component)]
 struct Food;
@@ -83,12 +123,13 @@ fn update_hunger(mut query: Query<(&mut Hunger, &mut IsHungry)>, time: Res<Time<
     }
 }
 
-fn update_target<
+fn update_closest_target<
     TargetSensor: SetSensorValue<TargetValue> + Component<Mutability = Mutable>,
-    Target: Component,
+    TargetFilter: QueryFilter,
+    EntityFilter: QueryFilter,
 >(
-    mut query: Query<(Entity, &mut TargetSensor)>,
-    target: Query<Entity, With<Target>>,
+    mut query: Query<(Entity, &mut TargetSensor), EntityFilter>,
+    target: Query<Entity, TargetFilter>,
     transforms: Query<&Transform>,
 ) {
     for (entity, mut target_sensor) in &mut query {
@@ -108,11 +149,16 @@ fn update_target<
                     if a < b { (entity_a, a) } else { (entity_b, b) }
                 },
             )
+            && target_sensor
+                .max_distance()
+                .is_none_or(|max_distance| max_distance > distance)
         {
             target_sensor.set_value(TargetValue {
                 entity: target,
                 is_close: distance < 0.1,
             });
+        } else {
+            target_sensor.clear();
         }
     }
 }
@@ -156,6 +202,49 @@ fn goto(
     }
 }
 
+fn idle(mut query: Query<&mut Transform, With<CurrentAction<Idle>>>, time: Res<Time<Virtual>>) {
+    for mut transform in &mut query {
+        let walk_speed = 50.0;
+
+        let movement = Vec3::new(1.0, 0.0, 0.0) * walk_speed * time.delta_secs();
+
+        transform.translation += movement;
+    }
+}
+
+fn run_away<Target: Component + WorldSensorValue<Option<TargetValue>>>(
+    mut query: Query<(Entity, &Target), With<CurrentAction<RunAway>>>,
+    mut transforms: Query<&mut Transform>,
+    time: Res<Time<Virtual>>,
+) {
+    for (entity, target) in &mut query {
+        if let Some(target_entity) = target.value()
+            && let Ok([mut transform, target_transform]) =
+                transforms.get_many_mut([entity, target_entity.entity])
+        {
+            let direction = transform.translation - target_transform.translation;
+            let distance = direction.length();
+            let walk_speed = 50.0;
+
+            if distance > 0.0 {
+                let movement = direction.normalize() * walk_speed * time.delta_secs();
+                transform.translation += movement;
+            }
+        }
+    }
+}
+
+fn sensor_bundle() -> impl Bundle {
+    (
+        LampSensor(false),
+        LampTarget::default(),
+        FoodTarget::default(),
+        EnemyTarget::default(),
+        IsHungry(false),
+        Hunger(0.0),
+    )
+}
+
 fn actor_bundle(
     lamp_value: bool,
     mesh: Handle<Mesh>,
@@ -163,24 +252,23 @@ fn actor_bundle(
     position: Vec3,
 ) -> impl Bundle {
     (
-        LampSensor(false),
-        LampTarget::default(),
-        FoodTarget::default(),
-        IsHungry(false),
-        Hunger(0.0),
         Goal::from_requirement(LampSensor::equal(lamp_value)),
+        ActionProvider::new(RunAway)
+            .with_requirement(EnemyTarget::is_some())
+            .with_effect(EnemyTarget::set(None)),
         ActionProvider::new(ToggleLampAction { to: lamp_value })
             .with_effect(LampSensor::set(lamp_value))
             .with_requirement(IsHungry::is_false())
             .with_requirement(LampSensor::equal(!lamp_value))
-            .with_target::<LampTarget>()
-            .with_cost(1),
+            .with_requirement(EnemyTarget::is_none())
+            .with_target::<LampTarget>(),
         ActionProvider::new(EatFoodAction)
             .with_effect(IsHungry::set(false))
             .with_requirement(IsHungry::is_true())
-            .with_target::<FoodTarget>()
-            .with_cost(1),
+            .with_requirement(EnemyTarget::is_none())
+            .with_target::<FoodTarget>(),
         GoalProvider::new(HungryScorer::default()).with_requirement(LampSensor::equal(lamp_value)),
+        Otherwise::new(Idle),
         Picker::highest_scorer(),
         Transform::from_translation(position),
         Mesh2d(mesh),
@@ -194,17 +282,25 @@ fn spawn_actors(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     let mesh = meshes.add(Circle::new(10.0));
-    commands.spawn(actor_bundle(
-        false,
-        mesh.clone(),
-        materials.add(Color::linear_rgb(1.0, 0.0, 0.0)),
-        Vec3::new(100., 0., 1.),
+    commands.spawn((
+        sensor_bundle(),
+        actor_bundle(
+            false,
+            mesh.clone(),
+            materials.add(Color::linear_rgb(1.0, 0.0, 0.0)),
+            Vec3::new(100., 0., 1.),
+        ),
+        RedTeam,
     ));
-    commands.spawn(actor_bundle(
-        true,
-        mesh,
-        materials.add(Color::linear_rgb(0.0, 1.0, 0.0)),
-        Vec3::new(-100., 0., 1.),
+    commands.spawn((
+        sensor_bundle(),
+        actor_bundle(
+            true,
+            mesh,
+            materials.add(Color::linear_rgb(0.0, 1.0, 0.0)),
+            Vec3::new(-100., 0., 1.),
+        ),
+        BlueTeam,
     ));
 }
 
@@ -289,15 +385,17 @@ pub fn main() {
             timer: Timer::from_seconds(5.0, TimerMode::Repeating),
         })
         .add_systems(Startup, (setup, spawn_actors, spawn_lamp))
-        .add_systems(Update, (goto, spawn_food))
+        .add_systems(Update, (goto, idle, run_away::<EnemyTarget>, spawn_food))
         .add_systems(FixedUpdate, (toggle_sensor, eat_food))
         .add_systems(
             SensorUpdate,
             (
                 update_hunger,
                 update_lamp_sensor,
-                update_target::<LampTarget, Lamp>,
-                update_target::<FoodTarget, Food>,
+                update_closest_target::<LampTarget, With<Lamp>, ()>,
+                update_closest_target::<FoodTarget, With<Food>, ()>,
+                update_closest_target::<EnemyTarget, With<BlueTeam>, With<RedTeam>>,
+                update_closest_target::<EnemyTarget, With<RedTeam>, With<BlueTeam>>,
             ),
         )
         .run();

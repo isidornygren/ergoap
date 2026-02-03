@@ -18,6 +18,7 @@ mod current_action;
 mod effect;
 mod goal;
 mod id_container;
+mod otherwise;
 mod plan;
 mod sensor_state;
 #[cfg(feature = "target")]
@@ -30,6 +31,7 @@ pub use crate::action_provider::{ActionProvider, ActionProviderBuilder, ActionPr
 pub use crate::comparison::Comparison;
 pub use crate::current_action::CurrentAction;
 pub use crate::goal::Goal;
+pub use crate::otherwise::Otherwise;
 pub use crate::sensor_state::SensorState;
 #[cfg(feature = "target")]
 pub use crate::world_sensor::TargetValue;
@@ -87,6 +89,7 @@ pub mod prelude {
         comparison::Comparison,
         current_action::CurrentAction,
         goal::Goal,
+        otherwise::Otherwise,
         sensor_state::SensorState,
         world_sensor::{
             SensorComparison, SensorComparisonBool, SensorComparisonOption, SensorEffect,

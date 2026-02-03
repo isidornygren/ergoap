@@ -55,8 +55,14 @@ harness = false
 debug = true
 
 [[example]]
-name = "basic"
-path = "examples/basic/main.rs"
+name = "simulation"
+path = "examples/simulation/main.rs"
+resolver = "3"
+required-features = ["target", "utility"]
+
+[[example]]
+name = "target"
+path = "examples/simulation/target.rs"
 resolver = "3"
 required-features = ["target", "utility"]
 
