@@ -1,15 +1,15 @@
 use std::any::TypeId;
 
 use bevy_ecs::{
-    component::{Component, ComponentId},
+    component::Component,
     lifecycle::HookContext,
-    world::{DeferredWorld, World},
+    world::{DeferredWorld, EntityWorldMut},
 };
 
 use crate::{
     Comparison,
-    id_container::{BuildComponentId, ComponentNotFound, IdContainer},
-    sensor_state::SensorState,
+    id_container::{BuildSensorId, BuildSensorIdError, IdContainer},
+    sensor_state::{SensorId, SensorState},
 };
 
 pub fn on_insert_goal_builder(
@@ -20,29 +20,32 @@ pub fn on_insert_goal_builder(
         ..
     }: HookContext,
 ) {
-    if let Some(goal_builder) = world.get::<GoalBuilder>(entity) {
-        let goal = goal_builder.build(&world).expect("Could not build goal");
+    if let Some(goal_builder) = world.get::<GoalBuilder>(entity).cloned() {
         world
             .commands()
             .entity(entity)
-            .insert(goal)
-            .remove_by_id(component_id);
+            .queue(move |mut entity_world: EntityWorldMut| {
+                let goal = goal_builder
+                    .build(&mut entity_world)
+                    .expect("Could not build goal");
+                entity_world.insert(goal).remove_by_id(component_id);
+            });
     }
 }
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Clone)]
 #[component(on_insert=on_insert_goal_builder)]
 pub struct GoalBuilder {
     requirements: Vec<IdContainer<TypeId, Comparison>>,
 }
 
 impl GoalBuilder {
-    pub fn build(&self, world: &World) -> Result<Goal, ComponentNotFound> {
+    pub fn build(&self, world: &mut EntityWorldMut) -> Result<Goal, BuildSensorIdError> {
         Ok(Goal {
             requirements: self
                 .requirements
                 .iter()
-                .map(|requirement| world.build_id_container(*requirement))
+                .map(|requirement| world.build_sensor_container(*requirement))
                 .collect::<Result<Vec<_>, _>>()?,
         })
     }
@@ -54,7 +57,7 @@ impl GoalBuilder {
 
 #[derive(Component, Debug, Clone)]
 pub struct Goal {
-    requirements: Vec<IdContainer<ComponentId, Comparison>>,
+    requirements: Vec<IdContainer<SensorId, Comparison>>,
 }
 
 impl Goal {

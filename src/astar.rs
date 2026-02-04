@@ -101,7 +101,7 @@ pub fn astar_plan(
             let mut new_state = all_nodes[current_index].state.clone();
             let mut new_bitvec = all_nodes[current_index].bit_vec_state.clone();
             action.apply(&mut new_state);
-            action.apply_to_bitvec(&new_state, &mut new_bitvec);
+            action.apply_to_bitvec(&mut new_bitvec);
 
             if closed_set.contains(&new_bitvec) {
                 continue;

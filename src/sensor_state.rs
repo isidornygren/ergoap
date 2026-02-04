@@ -1,30 +1,33 @@
-use std::hash::BuildHasherDefault;
+use std::any::TypeId;
 
 use crate::SensorValue;
 use bevy_ecs::component::{Component, ComponentId};
 use bitvec::prelude::*;
 use fxhash::FxHashMap;
 
-#[derive(Component, Debug, Default, PartialEq, Eq, Clone)]
+#[derive(Clone, Copy, Debug)]
+pub struct SensorId(pub(crate) usize);
+
+#[derive(Component, Debug, Default, Clone)]
 pub struct SensorState {
-    pub(crate) values: FxHashMap<usize, SensorValue>,
-    pub(crate) keys: Vec<usize>,
+    pub(crate) values: Vec<SensorValue>,
+    pub(crate) type_id_map: FxHashMap<TypeId, SensorId>,
 }
 
 impl SensorState {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            values: FxHashMap::default(),
-            keys: vec![],
+            values: vec![],
+            type_id_map: FxHashMap::default(),
         }
     }
 
     #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            values: FxHashMap::with_capacity_and_hasher(capacity, BuildHasherDefault::default()),
-            keys: Vec::with_capacity(capacity),
+            values: Vec::with_capacity(capacity),
+            type_id_map: FxHashMap::default(),
         }
     }
 
@@ -32,48 +35,41 @@ impl SensorState {
     pub fn from_vec<V: IntoIterator<Item = (ComponentId, I)> + Clone, I: Into<SensorValue>>(
         values: V,
     ) -> Self {
-        let mut keys: Vec<usize> = values
-            .clone()
-            .into_iter()
-            .map(|(comp_id, _)| comp_id.index())
-            .collect();
-        keys.sort_unstable();
         Self {
-            keys,
-            values: values
-                .into_iter()
-                .map(|(comp_id, value)| (comp_id.index(), value.into()))
-                .collect(),
+            values: values.into_iter().map(|(_, value)| value.into()).collect(),
+            type_id_map: FxHashMap::default(),
         }
     }
 
     #[must_use]
     pub fn bit_vec(&self) -> BitVec {
-        let mut bit_vec = bitvec![0u64; self.keys.len()];
-
-        for (index, key) in self.keys.iter().enumerate() {
-            let value = self.values.get(key);
-            bit_vec.set(
-                index,
-                value.is_some_and(super::world_sensor::SensorValue::as_bool),
-            );
-        }
-
-        bit_vec
+        self.values
+            .iter()
+            .map(SensorValue::as_bool)
+            .collect::<BitVec>()
     }
 
     #[must_use]
-    pub fn get(&self, component_id: &ComponentId) -> Option<&SensorValue> {
-        self.values.get(&component_id.index())
+    pub fn get(&self, id: &SensorId) -> Option<&SensorValue> {
+        self.values.get(id.0)
     }
 
-    pub fn insert<T: Into<SensorValue>>(&mut self, component_id: ComponentId, value: T) {
-        let index = component_id.index();
-        if !self.values.contains_key(&index) {
-            self.keys.push(index);
-            self.keys.sort_unstable();
-        }
-        self.values.insert(index, value.into());
+    pub fn push<T: Into<SensorValue>>(&mut self, type_id: TypeId, value: T) -> SensorId {
+        self.values.push(value.into());
+        let sensor_id = SensorId(self.values.len() - 1);
+        self.type_id_map.insert(type_id, sensor_id);
+        sensor_id
+    }
+
+    pub fn push_empty(&mut self, type_id: TypeId) -> SensorId {
+        self.values.push(SensorValue::None);
+        let sensor_id = SensorId(self.values.len() - 1);
+        self.type_id_map.insert(type_id, sensor_id);
+        sensor_id
+    }
+
+    pub fn insert<T: Into<SensorValue>>(&mut self, id: SensorId, value: T) {
+        self.values[id.0] = value.into();
     }
 }
 

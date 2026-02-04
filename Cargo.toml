@@ -62,7 +62,7 @@ required-features = ["target", "utility"]
 
 [[example]]
 name = "target"
-path = "examples/simulation/target.rs"
+path = "examples/target/main.rs"
 resolver = "3"
 required-features = ["target", "utility"]
 

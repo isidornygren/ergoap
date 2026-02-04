@@ -2,7 +2,7 @@ use bevy_ecs::{
     component::{Component, Immutable, StorageType},
     error::Result,
     lifecycle::HookContext,
-    world::{DeferredWorld, EntityWorldMut, World},
+    world::{DeferredWorld, EntityWorldMut},
 };
 use bevy_trait_query::queryable;
 use std::{
@@ -12,7 +12,7 @@ use std::{
 
 use crate::{
     Comparison, Goal, IdContainer, Score, Scorer, goal::GoalBuilder,
-    id_container::ComponentNotFound,
+    id_container::BuildSensorIdError,
 };
 
 #[queryable]
@@ -33,7 +33,10 @@ pub struct GoalProviderBuilder<T: Scorer> {
 }
 
 impl<T: Scorer> GoalProviderBuilder<T> {
-    pub(crate) fn build(self, world: &World) -> Result<GoalProvider<T>, ComponentNotFound> {
+    pub(crate) fn build(
+        self,
+        world: &mut EntityWorldMut,
+    ) -> Result<GoalProvider<T>, BuildSensorIdError> {
         Ok(GoalProvider {
             scorer: self.scorer,
             goal: self.goal.build(world)?,
@@ -56,7 +59,7 @@ pub fn on_insert_goal_provider_builder<T: Scorer + Send + Sync + 'static>(
         .entity(entity)
         .queue(|mut entity_world_mut: EntityWorldMut| -> Result {
             if let Some(goal_provider_builder) = entity_world_mut.take::<GoalProviderBuilder<T>>() {
-                let action_provider = goal_provider_builder.build(entity_world_mut.world())?;
+                let action_provider = goal_provider_builder.build(&mut entity_world_mut)?;
                 entity_world_mut.insert(action_provider);
             }
             Ok(())

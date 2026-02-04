@@ -3,7 +3,7 @@ use bevy_ecs::{
     entity::Entity,
     lifecycle::HookContext,
     query::{Changed, Or},
-    system::{ParallelCommands, Query},
+    system::{Commands, ParallelCommands, Query},
     world::{DeferredWorld, Ref},
 };
 
@@ -29,7 +29,7 @@ pub fn on_insert_plan(mut world: DeferredWorld, HookContext { entity, .. }: Hook
 pub struct Plan(Vec<Box<dyn ActionProviderTrait>>);
 
 pub fn make_plan(
-    par_commands: ParallelCommands,
+    mut commands: Commands,
     query: Query<
         (
             Entity,
@@ -41,33 +41,27 @@ pub fn make_plan(
         Or<(Changed<SensorState>, Changed<Goal>)>,
     >,
 ) {
-    query
-        .par_iter()
-        .for_each(|(entity, sensor_values, actions, goal, maybe_otherwise)| {
-            let dyn_actions: Vec<&dyn ActionProviderTrait> =
-                actions.iter().map(Ref::into_inner).collect();
-            if let Some(plan) = astar_plan(&sensor_values.to_owned(), &dyn_actions, goal) {
-                let plan_actions = plan
-                    .into_iter()
-                    .filter_map(|index| dyn_actions.get(index))
-                    .map(|action| action.clone_box())
-                    .rev()
-                    .collect();
+    for (entity, sensor_values, actions, goal, maybe_otherwise) in query.iter() {
+        let dyn_actions: Vec<&dyn ActionProviderTrait> =
+            actions.iter().map(Ref::into_inner).collect();
+        if let Some(plan) = astar_plan(&sensor_values.to_owned(), &dyn_actions, goal) {
+            let plan_actions = plan
+                .into_iter()
+                .filter_map(|index| dyn_actions.get(index))
+                .map(|action| action.clone_box())
+                .rev()
+                .collect();
 
-                par_commands.command_scope(|mut commands| {
-                    commands.entity(entity).insert(Plan(plan_actions));
-                });
+            commands.entity(entity).insert(Plan(plan_actions));
+        } else {
+            commands.entity(entity).remove::<Plan>();
+            if let Some(otherwise) = maybe_otherwise {
+                commands
+                    .entity(entity)
+                    .spawn_current_action(otherwise.action.clone_box());
             } else {
-                par_commands.command_scope(|mut commands| {
-                    commands.entity(entity).remove::<Plan>();
-                    if let Some(otherwise) = maybe_otherwise {
-                        commands
-                            .entity(entity)
-                            .spawn_current_action(otherwise.action.clone_box());
-                    } else {
-                        commands.entity(entity).despawn_current_action();
-                    }
-                });
+                commands.entity(entity).despawn_current_action();
             }
-        });
+        }
+    }
 }

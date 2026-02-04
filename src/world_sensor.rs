@@ -1,11 +1,6 @@
 use std::any::{Any, TypeId};
 
-use bevy_ecs::{
-    component::Components,
-    entity::Entity,
-    error::Result,
-    system::{Commands, Query},
-};
+use bevy_ecs::{entity::Entity, error::Result, system::Query};
 use bevy_trait_query::queryable;
 use thiserror::Error;
 
@@ -21,6 +16,7 @@ pub struct TargetValue {
 #[derive(Debug, PartialEq, Eq, Clone, Hash, Copy, PartialOrd)]
 pub enum SensorValue {
     Bool(bool),
+    None,
     #[cfg(feature = "target")]
     Target(Option<TargetValue>),
 }
@@ -143,26 +139,19 @@ pub enum CollectSensorValuesError {
 }
 
 pub fn collect_sensor_values(
-    mut commands: Commands,
-    query: Query<(Entity, &dyn WorldSensor, Option<&SensorState>)>,
-    components: &Components,
+    mut query: Query<(Entity, &dyn WorldSensor, &mut SensorState)>,
 ) -> Result {
-    for (entity, entity_sensors, maybe_previous_state) in &query {
-        let mut sensor_state = SensorState::with_capacity(entity_sensors.iter().count());
-
-        for sensor in entity_sensors {
+    for (entity, entity_sensors, mut sensor_state) in &mut query {
+        for sensor in entity_sensors.iter_changed() {
             let value = sensor.sensor_value();
             let type_id = (*sensor).type_id();
 
-            let id = components
-                .get_id(type_id)
+            let id = *sensor_state
+                .type_id_map
+                .get(&type_id)
                 .ok_or(CollectSensorValuesError::ComponentIdNotFound { type_id, entity })?;
 
             sensor_state.insert(id, value);
-        }
-
-        if maybe_previous_state.is_none_or(|previous_state| *previous_state != sensor_state) {
-            commands.entity(entity).insert(sensor_state);
         }
     }
     Ok(())

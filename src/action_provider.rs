@@ -3,10 +3,10 @@ use std::any::Any;
 use std::any::TypeId;
 
 use bevy_ecs::{
-    component::{Component, ComponentId, Immutable, StorageType},
+    component::{Component, Immutable, StorageType},
     error::Result,
     lifecycle::HookContext,
-    world::{DeferredWorld, EntityWorldMut, World},
+    world::{DeferredWorld, EntityWorldMut},
 };
 use bevy_trait_query::queryable;
 use bitvec::vec::BitVec;
@@ -15,8 +15,8 @@ use crate::{
     Comparison, IdContainer,
     current_action::CurrentAction,
     effect::EffectValue,
-    id_container::{BuildComponentId, ComponentNotFound},
-    sensor_state::SensorState,
+    id_container::{BuildSensorId, BuildSensorIdError},
+    sensor_state::{SensorId, SensorState},
 };
 #[cfg(feature = "target")]
 use crate::{TargetValue, WorldSensorValue};
@@ -24,13 +24,13 @@ use crate::{TargetValue, WorldSensorValue};
 #[queryable]
 pub trait ActionProviderTrait: Send + Sync {
     fn apply(&self, sensor_values: &mut SensorState);
-    fn apply_to_bitvec(&self, sensor_state: &SensorState, bitvec: &mut BitVec);
+    fn apply_to_bitvec(&self, bitvec: &mut BitVec);
     fn preconditions_met(&self, _sensor_values: &SensorState) -> bool;
     fn cost(&self) -> usize;
     fn insert_current_action(&self, entity_world: &mut EntityWorldMut);
     fn clone_box(&self) -> Box<dyn ActionProviderTrait>;
     #[cfg(feature = "target")]
-    fn target(&self) -> &Option<ComponentId>;
+    fn target(&self) -> &Option<SensorId>;
 }
 
 pub fn on_insert_action_provider_builder<C: Clone + Send + Sync + 'static>(
@@ -44,7 +44,7 @@ pub fn on_insert_action_provider_builder<C: Clone + Send + Sync + 'static>(
             if let Some(action_provider_builder) =
                 entity_world_mut.take::<ActionProviderBuilder<C>>()
             {
-                let action_provider = action_provider_builder.build(entity_world_mut.world())?;
+                let action_provider = action_provider_builder.build(&mut entity_world_mut)?;
                 entity_world_mut.insert(action_provider);
             }
             Ok(())
@@ -98,23 +98,26 @@ impl<C: Clone + Send + Sync + 'static> Component for ActionProviderBuilder<C> {
 }
 
 impl<C> ActionProviderBuilder<C> {
-    pub(crate) fn build(self, world: &World) -> Result<ActionProvider<C>, ComponentNotFound> {
+    pub(crate) fn build(
+        self,
+        world: &mut EntityWorldMut,
+    ) -> Result<ActionProvider<C>, BuildSensorIdError> {
         Ok(ActionProvider {
             cost: self.cost,
             action: self.action,
             requirements: self
                 .requirements
                 .into_iter()
-                .map(|requirement| world.build_id_container(requirement))
+                .map(|requirement| world.build_sensor_container(requirement))
                 .collect::<Result<Vec<_>, _>>()?,
             effects: self
                 .effects
                 .into_iter()
-                .map(|effect| world.build_id_container(effect))
+                .map(|effect| world.build_sensor_container(effect))
                 .collect::<Result<Vec<_>, _>>()?,
             #[cfg(feature = "target")]
             target: match &self.target {
-                Some(target) => Some(world.get_component_id(target)?),
+                Some(target) => Some(world.get_sensor_id(target)?),
                 None => None,
             },
         })
@@ -153,13 +156,13 @@ pub struct ActionProvider<C> {
     pub cost: usize,
     /// The state requirements for this action to be valid.
     /// If _all_ requirements are not met, the action cannot be selected.
-    pub requirements: Vec<IdContainer<ComponentId, Comparison>>,
+    pub requirements: Vec<IdContainer<SensorId, Comparison>>,
     /// The state effects of this action.
-    pub effects: Vec<IdContainer<ComponentId, EffectValue>>,
+    pub effects: Vec<IdContainer<SensorId, EffectValue>>,
     #[cfg(feature = "target")]
     /// The target of the action, if the ``TargetValue`` does not have an entity it will not be able to be chosen.
     /// If the ``TargetValue``s ``is_close`` field is not ``true``, it will spawn a ``CurrentAction<GotoTarget>``.
-    pub target: Option<ComponentId>,
+    pub target: Option<SensorId>,
 }
 
 impl<C> ActionProvider<C> {
@@ -188,7 +191,7 @@ impl<C: Clone + Send + Sync + 'static> ActionProviderTrait for ActionProvider<C>
         }
     }
 
-    fn apply_to_bitvec(&self, sensor_state: &SensorState, bitvec: &mut BitVec) {
+    fn apply_to_bitvec(&self, bitvec: &mut BitVec) {
         for IdContainer {
             id,
             value: effect_value,
@@ -196,14 +199,7 @@ impl<C: Clone + Send + Sync + 'static> ActionProviderTrait for ActionProvider<C>
         {
             match effect_value {
                 EffectValue::Set(value) => {
-                    if let Some((index, _)) = sensor_state
-                        .keys
-                        .iter()
-                        .enumerate()
-                        .find(|(_, key)| **key == id.index())
-                    {
-                        bitvec.set(index, value.as_bool());
-                    }
+                    bitvec.set(id.0, value.as_bool());
                 }
             }
         }
@@ -236,7 +232,7 @@ impl<C: Clone + Send + Sync + 'static> ActionProviderTrait for ActionProvider<C>
     }
 
     #[cfg(feature = "target")]
-    fn target(&self) -> &Option<ComponentId> {
+    fn target(&self) -> &Option<SensorId> {
         &self.target
     }
 }

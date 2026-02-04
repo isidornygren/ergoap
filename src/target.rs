@@ -1,5 +1,5 @@
 use bevy_ecs::{
-    component::{Component, ComponentId},
+    component::Component,
     entity::Entity,
     error::Result,
     query::{Changed, Or},
@@ -10,7 +10,7 @@ use thiserror::Error;
 
 use crate::{
     ActionProviderTrait, CurrentAction, SensorState, SensorValue, TargetValue,
-    current_action::CurrentActionCommands,
+    current_action::CurrentActionCommands, sensor_state::SensorId,
 };
 
 pub struct GotoTarget {
@@ -60,8 +60,8 @@ pub enum GotoError {
     TargetNotFound,
     #[error("goto action not found")]
     NextActionNotFound,
-    #[error("goto sensor state for component id {0:?} not found")]
-    SensorStateNotFound(ComponentId),
+    #[error("goto sensor state for sensor id {0:?} not found")]
+    SensorStateNotFound(SensorId),
 }
 
 pub fn finish_goto(

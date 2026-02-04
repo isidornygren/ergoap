@@ -252,6 +252,7 @@ fn actor_bundle(
     position: Vec3,
 ) -> impl Bundle {
     (
+        SensorState::default(),
         Goal::from_requirement(LampSensor::equal(lamp_value)),
         ActionProvider::new(RunAway)
             .with_requirement(EnemyTarget::is_some())
