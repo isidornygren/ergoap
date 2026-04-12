@@ -3,13 +3,13 @@ use bevy_ecs::{
     entity::Entity,
     lifecycle::HookContext,
     query::{Changed, Or},
-    system::{Commands, ParallelCommands, Query},
+    system::{Commands, Query},
     world::{DeferredWorld, Ref},
 };
 
 use crate::{
     Otherwise, action_provider::ActionProviderTrait, astar::astar_plan,
-    current_action::CurrentActionCommands, goal::Goal, sensor_state::SensorState,
+    current_action::ActionCommands, goal::Goal, sensor_state::SensorState,
 };
 
 pub fn on_insert_plan(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
@@ -20,7 +20,7 @@ pub fn on_insert_plan(mut world: DeferredWorld, HookContext { entity, .. }: Hook
         world
             .commands()
             .entity(entity)
-            .spawn_current_action(first_action);
+            .insert_current_action(first_action);
     }
 }
 
@@ -58,9 +58,9 @@ pub fn make_plan(
             if let Some(otherwise) = maybe_otherwise {
                 commands
                     .entity(entity)
-                    .spawn_current_action(otherwise.action.clone_box());
+                    .insert_current_action(otherwise.action.clone_box());
             } else {
-                commands.entity(entity).despawn_current_action();
+                commands.entity(entity).remove_current_action();
             }
         }
     }

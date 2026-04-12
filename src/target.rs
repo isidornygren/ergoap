@@ -9,8 +9,8 @@ use bevy_ecs::{
 use thiserror::Error;
 
 use crate::{
-    ActionProviderTrait, CurrentAction, SensorState, SensorValue, TargetValue,
-    current_action::CurrentActionCommands, sensor_state::SensorId,
+    ActionProviderTrait, CurrentAction, SensorState, current_action::ActionCommands,
+    sensor_state::SensorId,
 };
 
 pub struct GotoTarget {
@@ -72,18 +72,17 @@ pub fn finish_goto(
     >,
 ) -> Result {
     for (entity, goto_action, sensor_state) in &query {
-        let sensor_component_id = goto_action
+        let target = goto_action
             .next_action()
             .ok_or(GotoError::NextActionNotFound)?
             .target()
             .as_ref()
             .ok_or(GotoError::TargetNotFound)?;
         let sensor_state = sensor_state
-            .get(sensor_component_id)
-            .ok_or(GotoError::SensorStateNotFound(*sensor_component_id))?;
-        if let SensorValue::Target(Some(TargetValue { is_close, .. })) = sensor_state
-            && *is_close
-        {
+            .get(&target.id)
+            .ok_or(GotoError::SensorStateNotFound(target.id))?;
+
+        if sensor_state.is_close(target.value) {
             commands.entity(entity).insert_action(
                 goto_action
                     .next_action()

@@ -7,13 +7,13 @@ use thiserror::Error;
 use crate::{Comparison, IdContainer, effect::EffectValue, sensor_state::SensorState};
 
 #[cfg(feature = "target")]
-#[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Hash)]
+#[derive(Debug, PartialEq, Clone, Copy, PartialOrd)]
 pub struct TargetValue {
     pub entity: Entity,
-    pub is_close: bool,
+    pub distance: f32,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash, Copy, PartialOrd)]
+#[derive(Debug, PartialEq, Clone, Copy, PartialOrd)]
 pub enum SensorValue {
     Bool(bool),
     None,
@@ -32,9 +32,9 @@ impl SensorValue {
     }
 
     #[must_use]
-    pub const fn is_close(&self) -> bool {
+    pub const fn is_close(&self, distance: f32) -> bool {
         match self {
-            Self::Target(Some(v)) => v.is_close,
+            Self::Target(Some(v)) => v.distance <= distance,
             _ => false,
         }
     }

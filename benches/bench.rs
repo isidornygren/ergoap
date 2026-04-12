@@ -9,10 +9,7 @@ mod helpers;
 struct SomeAction;
 
 fn spawn_action_provider(mut commands: Commands) {
-    commands.spawn((
-        SensorState::default(),
-        ActionProvider::new(black_box(SomeAction)),
-    ));
+    commands.spawn(ActionProvider::new(black_box(SomeAction)));
 }
 
 fn bench_spawn_action_provider(c: &mut Criterion) {
@@ -64,11 +61,10 @@ macro_rules! sensor_benchmark {
                 prev_values.push(Sensor~N::is_true());
                 entity_commands.insert(Sensor~N(false));
             });
-            entity_commands.insert((
-                SensorState::default(),
+            entity_commands.insert(
                 ActionProvider::new(black_box(Action0))
                     .with_effect(Sensor0::set(true))
-            ));
+            );
             seq_macro::seq!(N in 1..$count {
                 entity_commands.insert(
                     ActionProvider::new(black_box(Action~N))

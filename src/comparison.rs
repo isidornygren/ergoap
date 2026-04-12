@@ -8,7 +8,7 @@ use crate::SensorValue;
 /// let comparison = Comparison::Equal(true.into());
 /// assert!(comparison.compare(true));
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Comparison {
     Equal(SensorValue),
     NotEqual(SensorValue),

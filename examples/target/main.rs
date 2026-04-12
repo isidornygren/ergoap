@@ -28,7 +28,7 @@ fn update_target(
 
         target_sensor.0 = Some(TargetValue {
             entity: *target,
-            is_close: distance < 0.1,
+            distance,
         });
     }
 }
@@ -85,7 +85,7 @@ fn setup(mut commands: Commands) {
         SomeSensor(false),
         ActionProvider::new(SomeAction)
             .with_requirement(SomeSensor::is_false())
-            .with_target::<TargetSensor>()
+            .with_target::<TargetSensor>(0.1)
             .with_effect(SomeSensor::set(true)),
         Goal::from_requirement(SomeSensor::is_true()),
         Transform::from_xyz(-100., 0., 0.),

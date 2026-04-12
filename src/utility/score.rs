@@ -1,4 +1,4 @@
-#[derive(PartialEq, PartialOrd, Clone, Copy)]
+#[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
 pub struct Score(f32);
 
 impl Eq for Score {}

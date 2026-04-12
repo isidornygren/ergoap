@@ -30,7 +30,7 @@ pub trait ActionProviderTrait: Send + Sync {
     fn insert_current_action(&self, entity_world: &mut EntityWorldMut);
     fn clone_box(&self) -> Box<dyn ActionProviderTrait>;
     #[cfg(feature = "target")]
-    fn target(&self) -> &Option<SensorId>;
+    fn target(&self) -> &Option<IdContainer<SensorId, f32>>;
 }
 
 pub fn on_insert_action_provider_builder<C: Clone + Send + Sync + 'static>(
@@ -57,7 +57,7 @@ pub struct ActionProviderBuilder<C> {
     pub requirements: Vec<IdContainer<TypeId, Comparison>>,
     pub effects: Vec<IdContainer<TypeId, EffectValue>>,
     #[cfg(feature = "target")]
-    pub target: Option<TypeId>,
+    pub target: Option<IdContainer<TypeId, f32>>,
 }
 
 impl<C> ActionProviderBuilder<C> {
@@ -81,8 +81,14 @@ impl<C> ActionProviderBuilder<C> {
 
     #[cfg(feature = "target")]
     #[must_use]
-    pub const fn with_target<T: Any + WorldSensorValue<Option<TargetValue>>>(mut self) -> Self {
-        self.target = Some(TypeId::of::<T>());
+    pub const fn with_target<T: Any + WorldSensorValue<Option<TargetValue>>>(
+        mut self,
+        distance: f32,
+    ) -> Self {
+        self.target = Some(IdContainer {
+            id: TypeId::of::<T>(),
+            value: distance,
+        });
         self
     }
 }
@@ -94,6 +100,13 @@ impl<C: Clone + Send + Sync + 'static> Component for ActionProviderBuilder<C> {
 
     fn on_insert() -> Option<bevy_ecs::lifecycle::ComponentHook> {
         Some(on_insert_action_provider_builder::<C>)
+    }
+
+    fn register_required_components(
+        _component_id: bevy_ecs::component::ComponentId,
+        required_components: &mut bevy_ecs::component::RequiredComponentsRegistrator,
+    ) {
+        required_components.register_required(SensorState::default);
     }
 }
 
@@ -116,10 +129,10 @@ impl<C> ActionProviderBuilder<C> {
                 .map(|effect| world.build_sensor_container(effect))
                 .collect::<Result<Vec<_>, _>>()?,
             #[cfg(feature = "target")]
-            target: match &self.target {
-                Some(target) => Some(world.get_sensor_id(target)?),
-                None => None,
-            },
+            target: self
+                .target
+                .map(|target| world.build_sensor_container(target))
+                .transpose()?,
         })
     }
 }
@@ -148,7 +161,6 @@ impl<C> ActionProviderBuilder<C> {
 /// assert_eq!(action_provider.cost, 2);
 /// ```
 #[derive(Component, Clone)]
-#[require(SensorState)]
 pub struct ActionProvider<C> {
     /// The action that will spawn in the entity when the planner has chosen this ``ActionProvider``.
     pub action: C,
@@ -162,7 +174,7 @@ pub struct ActionProvider<C> {
     #[cfg(feature = "target")]
     /// The target of the action, if the ``TargetValue`` does not have an entity it will not be able to be chosen.
     /// If the ``TargetValue``s ``is_close`` field is not ``true``, it will spawn a ``CurrentAction<GotoTarget>``.
-    pub target: Option<SensorId>,
+    pub target: Option<IdContainer<SensorId, f32>>,
 }
 
 impl<C> ActionProvider<C> {
@@ -208,7 +220,9 @@ impl<C: Clone + Send + Sync + 'static> ActionProviderTrait for ActionProvider<C>
     fn preconditions_met(&self, sensor_values: &SensorState) -> bool {
         #[cfg(feature = "target")]
         if let Some(target) = &self.target
-            && sensor_values.get(target).is_none_or(|v| !v.has_target())
+            && sensor_values
+                .get(&target.id)
+                .is_none_or(|v| !v.has_target())
         {
             return false;
         }
@@ -232,7 +246,7 @@ impl<C: Clone + Send + Sync + 'static> ActionProviderTrait for ActionProvider<C>
     }
 
     #[cfg(feature = "target")]
-    fn target(&self) -> &Option<SensorId> {
+    fn target(&self) -> &Option<IdContainer<SensorId, f32>> {
         &self.target
     }
 }

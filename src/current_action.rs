@@ -2,16 +2,28 @@ use std::ops::{Deref, DerefMut};
 
 use bevy_ecs::{
     component::{Component, ComponentId},
+    error::Result,
     lifecycle::HookContext,
     prelude::ReflectComponent,
     system::EntityCommands,
     world::{DeferredWorld, EntityWorldMut},
 };
 use bevy_reflect::Reflect;
+use thiserror::Error;
 
-use crate::ActionProviderTrait;
 #[cfg(feature = "target")]
 use crate::GotoTarget;
+use crate::{ActionProviderTrait, SensorValue, sensor_state::SensorId};
+
+#[derive(Error, Debug)]
+pub enum InsertCurrentActionError {
+    #[error("could not get sensor state")]
+    SensorStateNotFound,
+    #[error("could not get current target for sensor {0:?}")]
+    CurrentTargetNotFound(SensorId),
+    #[error("current target not a valid TargetSensor: {0:?}")]
+    InvalidTargetValue(SensorValue),
+}
 
 pub fn on_insert_current_action(
     mut world: DeferredWorld,
@@ -65,40 +77,41 @@ impl<A> DerefMut for CurrentAction<A> {
     }
 }
 
-pub trait CurrentActionCommands {
-    fn spawn_current_action(&mut self, action: Box<dyn ActionProviderTrait>);
-    fn despawn_current_action(&mut self);
+pub trait ActionCommands {
     fn insert_action(&mut self, action: &dyn ActionProviderTrait);
+    fn insert_current_action(&mut self, action: Box<dyn ActionProviderTrait>);
+    fn remove_current_action(&mut self);
 }
 
-impl CurrentActionCommands for EntityCommands<'_> {
+impl ActionCommands for EntityCommands<'_> {
     fn insert_action(&mut self, action: &dyn ActionProviderTrait) {
         let cloned_action = action.clone_box();
+
         self.queue(move |mut entity_world: EntityWorldMut| {
             cloned_action.insert_current_action(&mut entity_world);
         });
     }
 
-    fn spawn_current_action(&mut self, action: Box<dyn ActionProviderTrait>) {
+    fn insert_current_action(&mut self, action: Box<dyn ActionProviderTrait>) {
         #[cfg(feature = "target")]
         if let Some(target) = *action.target() {
-            self.queue(move |mut entity_world: EntityWorldMut| {
+            self.queue(move |mut entity_world: EntityWorldMut| -> Result {
                 use crate::{SensorState, SensorValue, world_sensor::TargetValue};
 
                 let sensor_state = entity_world
                     .get::<SensorState>()
-                    .expect("Could not get sensor state");
+                    .ok_or(InsertCurrentActionError::SensorStateNotFound)?;
                 let current_target = sensor_state
-                    .get(&target)
-                    .expect("Could not get current target");
-                let (entity, is_close) = match current_target {
-                    SensorValue::Target(Some(TargetValue { entity, is_close })) => {
-                        Some((entity, is_close))
-                    }
-                    _ => None,
-                }
-                .expect("Current target not the correct value");
-                if *is_close {
+                    .get(&target.id)
+                    .ok_or(InsertCurrentActionError::CurrentTargetNotFound(target.id))?;
+                let entity = match current_target {
+                    SensorValue::Target(Some(TargetValue { entity, .. })) => Ok(entity),
+                    _ => Err(InsertCurrentActionError::InvalidTargetValue(
+                        *current_target,
+                    )),
+                }?;
+
+                if current_target.is_close(target.value) {
                     action.insert_current_action(&mut entity_world);
                 } else {
                     entity_world.insert(CurrentAction {
@@ -108,6 +121,7 @@ impl CurrentActionCommands for EntityCommands<'_> {
                         },
                     });
                 }
+                Ok(())
             });
         } else {
             self.insert_action(&*action);
@@ -116,7 +130,7 @@ impl CurrentActionCommands for EntityCommands<'_> {
         self.insert_action(&action);
     }
 
-    fn despawn_current_action(&mut self) {
+    fn remove_current_action(&mut self) {
         self.queue(|mut entity_world: EntityWorldMut| {
             if let Some(component_id) = entity_world
                 .get::<CurrentActionRef>()
