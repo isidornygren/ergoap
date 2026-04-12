@@ -48,18 +48,18 @@ impl SetSensorValue<TargetValue> for LampTarget {
 #[derive(Component, WorldSensor, Default)]
 struct SleepTarget(Option<TargetValue>);
 
-#[derive(Clone, Action)]
+#[derive(Clone, Component, Action)]
 struct ToggleLampAction {
     to: bool,
 }
 
-#[derive(Clone, Action)]
+#[derive(Clone, Component, Action)]
 struct EatFoodAction;
 
-#[derive(Clone, Action)]
+#[derive(Clone, Component, Action)]
 struct RunAway;
 
-#[derive(Clone, Action)]
+#[derive(Clone, Component, Action)]
 struct Idle;
 
 #[derive(Component)]
@@ -123,7 +123,7 @@ struct HungryScorer(f32);
 struct EnemyScorer(f32);
 
 fn toggle_sensor(
-    query: Query<&CurrentAction<ToggleLampAction>>,
+    query: Query<&ToggleLampAction>,
     mut lamp: Single<(&mut Lamp, &mut MeshMaterial2d<ColorMaterial>)>,
 ) {
     for current_action in query {
@@ -190,7 +190,7 @@ fn update_closest_target<
 }
 
 fn eat_food(
-    mut query: Query<(&FoodTarget, &mut Hunger), With<CurrentAction<EatFoodAction>>>,
+    mut query: Query<(&FoodTarget, &mut Hunger), With<EatFoodAction>>,
     mut commands: Commands,
 ) {
     for (food_target, mut weariness) in &mut query {
@@ -202,7 +202,7 @@ fn eat_food(
 }
 
 fn goto(
-    mut query: Query<(Entity, &CurrentAction<GotoTarget>)>,
+    mut query: Query<(Entity, &GotoTarget)>,
     mut transforms: Query<&mut Transform>,
     time: Res<Time<Virtual>>,
 ) {
@@ -231,7 +231,7 @@ fn goto(
 fn idle(
     mut commands: Commands,
 
-    mut query: Query<(Entity, &mut Transform, &IdlePath), With<CurrentAction<Idle>>>,
+    mut query: Query<(Entity, &mut Transform, &IdlePath), With<Idle>>,
     time: Res<Time<Virtual>>,
 ) {
     for (entity, mut transform, idle_path) in &mut query {
@@ -255,7 +255,7 @@ fn idle(
 
 fn create_idle_path(
     mut commands: Commands,
-    mut query: Query<Entity, (With<CurrentAction<Idle>>, Without<IdlePath>)>,
+    mut query: Query<Entity, (With<Idle>, Without<IdlePath>)>,
     time: Res<Time<Virtual>>,
 ) {
     let mut rng = Lcg {
@@ -273,7 +273,7 @@ fn create_idle_path(
 }
 
 fn run_away<Target: Component + WorldSensorValue<Option<TargetValue>>>(
-    mut query: Query<(Entity, &Target), With<CurrentAction<RunAway>>>,
+    mut query: Query<(Entity, &Target), With<RunAway>>,
     mut transforms: Query<&mut Transform>,
     time: Res<Time<Virtual>>,
 ) {

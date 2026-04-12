@@ -12,9 +12,8 @@ use bevy_trait_query::queryable;
 use bitvec::vec::BitVec;
 
 use crate::{
-    Comparison, IdContainer,
-    current_action::CurrentAction,
-    effect::EffectValue,
+    Comparison, IdContainer, SensorValue,
+    current_action::{CurrentActionRef, UpdateActionRef},
     id_container::{BuildSensorId, BuildSensorIdError},
     sensor_state::{SensorId, SensorState},
 };
@@ -27,7 +26,7 @@ pub trait ActionProviderTrait: Send + Sync {
     fn apply_to_bitvec(&self, bitvec: &mut BitVec);
     fn preconditions_met(&self, _sensor_values: &SensorState) -> bool;
     fn cost(&self) -> usize;
-    fn insert_current_action(&self, entity_world: &mut EntityWorldMut);
+    fn add_to_entity_world(&self, entity_world: &mut EntityWorldMut);
     fn clone_box(&self) -> Box<dyn ActionProviderTrait>;
     #[cfg(feature = "target")]
     fn target(&self) -> &Option<IdContainer<SensorId, f32>>;
@@ -55,7 +54,7 @@ pub struct ActionProviderBuilder<C> {
     pub action: C,
     pub cost: usize,
     pub requirements: Vec<IdContainer<TypeId, Comparison>>,
-    pub effects: Vec<IdContainer<TypeId, EffectValue>>,
+    pub effects: Vec<IdContainer<TypeId, SensorValue>>,
     #[cfg(feature = "target")]
     pub target: Option<IdContainer<TypeId, f32>>,
 }
@@ -68,7 +67,7 @@ impl<C> ActionProviderBuilder<C> {
     }
 
     #[must_use]
-    pub fn with_effect(mut self, effect: IdContainer<TypeId, EffectValue>) -> Self {
+    pub fn with_effect(mut self, effect: IdContainer<TypeId, SensorValue>) -> Self {
         self.effects.push(effect);
         self
     }
@@ -170,7 +169,7 @@ pub struct ActionProvider<C> {
     /// If _all_ requirements are not met, the action cannot be selected.
     pub requirements: Vec<IdContainer<SensorId, Comparison>>,
     /// The state effects of this action.
-    pub effects: Vec<IdContainer<SensorId, EffectValue>>,
+    pub effects: Vec<IdContainer<SensorId, SensorValue>>,
     #[cfg(feature = "target")]
     /// The target of the action, if the ``TargetValue`` does not have an entity it will not be able to be chosen.
     /// If the ``TargetValue``s ``is_close`` field is not ``true``, it will spawn a ``CurrentAction<GotoTarget>``.
@@ -190,30 +189,16 @@ impl<C> ActionProvider<C> {
     }
 }
 
-impl<C: Clone + Send + Sync + 'static> ActionProviderTrait for ActionProvider<C> {
+impl<C: Component + Clone> ActionProviderTrait for ActionProvider<C> {
     fn apply(&self, sensor_values: &mut SensorState) {
-        for IdContainer {
-            id,
-            value: effect_value,
-        } in &self.effects
-        {
-            match effect_value {
-                EffectValue::Set(value) => sensor_values.insert(*id, *value),
-            }
+        for IdContainer { id, value } in &self.effects {
+            sensor_values.insert(*id, *value)
         }
     }
 
     fn apply_to_bitvec(&self, bitvec: &mut BitVec) {
-        for IdContainer {
-            id,
-            value: effect_value,
-        } in &self.effects
-        {
-            match effect_value {
-                EffectValue::Set(value) => {
-                    bitvec.set(id.0, value.as_bool());
-                }
-            }
+        for IdContainer { id, value } in &self.effects {
+            bitvec.set(id.0, value.as_bool());
         }
     }
 
@@ -235,10 +220,14 @@ impl<C: Clone + Send + Sync + 'static> ActionProviderTrait for ActionProvider<C>
         self.cost
     }
 
-    fn insert_current_action(&self, entity_world: &mut EntityWorldMut) {
-        entity_world.insert(CurrentAction {
-            action: self.action.clone(),
-        });
+    fn add_to_entity_world(&self, entity_world: &mut EntityWorldMut) {
+        if let Some(component_id) = entity_world.world_scope(|w| w.component_id::<C>()) {
+            entity_world.update_action_ref(component_id);
+        } else {
+            // This should probably not happen, but adding it here as a failsafe if a component is not registered.
+            entity_world.remove::<CurrentActionRef>();
+        }
+        entity_world.insert(self.action.clone());
     }
 
     fn clone_box(&self) -> Box<dyn ActionProviderTrait> {

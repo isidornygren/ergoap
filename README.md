@@ -70,11 +70,11 @@ commands.spawn((SomeSensor(false), action_provider));
 
 A quirk with `ActionProvider`s is that only one component of type `ActionProvider<SomeAction>` can exist tied to an entity, so this limits you to create a new struct for each action (within the same entity).
 
-When an `ActionProvider` is selected by the planner, it will spawn a `CurrentAction<A>` where `A` is the action passed when creating the `ActionProvider`, these can then be used in a system to perform the action:
+When an `ActionProvider` is selected by the planner, it will spawn the action that was passed when creating the `ActionProvider`, these can then be used in a system to perform the action:
 
 ```rust
-fn perform_action(query: Query<&CurrentAction<Perform>>){
-    for current_action in query.iter() {
+fn perform_action(query: Query<&Perform>){
+    for perform in query.iter() {
         // Perform an action here.
     }
 }
@@ -122,7 +122,7 @@ ActionProvider::new(SomeAction)
     .with_target::<TargetSensor>();
 ```
 
-An `ActionProvider` with a target produces a `CurrentAction<GotoTarget>` action when the TargetSensor value is populated and the `is_close` field equals `false`.
+An `ActionProvider` with a target produces a `GotoTarget` action when the TargetSensor value is populated and the `is_close` field equals `false`.
 It is up to the user to set the `is_close` field which will produce the action within the `ActionProvider`. For a detailed example, see the `target` example.
 
 ## Limitations

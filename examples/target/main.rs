@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use ergoap::prelude::*;
 
-#[derive(Action, Clone)]
+#[derive(Component, Clone)]
 struct SomeAction;
 
 #[derive(WorldSensor, Component)]
@@ -34,7 +34,7 @@ fn update_target(
 }
 
 fn goto_target(
-    mut query: Query<(Entity, &CurrentAction<GotoTarget>)>,
+    mut query: Query<(Entity, &GotoTarget)>,
     mut transforms: Query<&mut Transform>,
     time: Res<Time<Virtual>>,
 ) {
@@ -69,10 +69,7 @@ fn update_sensor(
     }
 }
 
-fn execute_action(
-    mut query: Query<&CurrentAction<SomeAction>>,
-    mut target: Single<&mut TargetComponent>,
-) {
+fn execute_action(mut query: Query<&SomeAction>, mut target: Single<&mut TargetComponent>) {
     for _ in &mut query {
         info!("Turned target value on");
         target.0 = true;

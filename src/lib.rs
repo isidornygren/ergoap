@@ -15,7 +15,6 @@ mod astar;
 mod auto_register;
 mod comparison;
 mod current_action;
-mod effect;
 mod goal;
 mod id_container;
 mod otherwise;
@@ -29,7 +28,6 @@ mod world_sensor;
 
 pub use crate::action_provider::{ActionProvider, ActionProviderBuilder, ActionProviderTrait};
 pub use crate::comparison::Comparison;
-pub use crate::current_action::CurrentAction;
 pub use crate::goal::Goal;
 pub use crate::otherwise::Otherwise;
 pub use crate::sensor_state::SensorState;
@@ -87,7 +85,6 @@ pub mod prelude {
         action_provider::{ActionProvider, ActionProviderBuilder, ActionProviderTrait},
         auto_register::{AutomaticTraitRegistrations, RegisterComponentAs},
         comparison::Comparison,
-        current_action::CurrentAction,
         goal::Goal,
         otherwise::Otherwise,
         sensor_state::SensorState,

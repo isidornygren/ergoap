@@ -4,7 +4,7 @@ use bevy_ecs::{entity::Entity, error::Result, system::Query};
 use bevy_trait_query::queryable;
 use thiserror::Error;
 
-use crate::{Comparison, IdContainer, effect::EffectValue, sensor_state::SensorState};
+use crate::{Comparison, IdContainer, sensor_state::SensorState};
 
 #[cfg(feature = "target")]
 #[derive(Debug, PartialEq, Clone, Copy, PartialOrd)]
@@ -127,8 +127,8 @@ where
 impl<T> SensorComparisonBool for T where T: SensorComparison<bool> {}
 
 pub trait SensorEffect<T: Into<SensorValue>>: WorldSensorValue<T> + Any + Sized {
-    fn set(value: T) -> IdContainer<TypeId, EffectValue> {
-        IdContainer::new::<Self>(EffectValue::Set(value.into()))
+    fn set(value: T) -> IdContainer<TypeId, SensorValue> {
+        IdContainer::new::<Self>(value.into())
     }
 }
 

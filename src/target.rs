@@ -9,49 +9,47 @@ use bevy_ecs::{
 use thiserror::Error;
 
 use crate::{
-    ActionProviderTrait, CurrentAction, SensorState, current_action::ActionCommands,
-    sensor_state::SensorId,
+    ActionProviderTrait, SensorState, current_action::ActionCommands, sensor_state::SensorId,
 };
 
+#[derive(Component)]
 pub struct GotoTarget {
     pub(crate) next_action: Option<Box<dyn ActionProviderTrait>>,
     pub(crate) target: Entity,
 }
 
-impl CurrentAction<GotoTarget> {
+impl GotoTarget {
     #[must_use]
     pub const fn target(&self) -> Entity {
-        self.action.target
+        self.target
     }
     #[must_use]
     pub fn next_action(&self) -> Option<&dyn ActionProviderTrait> {
-        self.action.next_action.as_deref()
+        self.next_action.as_deref()
     }
 }
 
-impl Relationship for CurrentAction<GotoTarget> {
+impl Relationship for GotoTarget {
     type RelationshipTarget = TargetedBy;
 
     fn get(&self) -> Entity {
-        self.action.target
+        self.target
     }
 
     fn from(entity: Entity) -> Self {
         Self {
-            action: GotoTarget {
-                next_action: None,
-                target: entity,
-            },
+            next_action: None,
+            target: entity,
         }
     }
 
     fn set_risky(&mut self, entity: Entity) {
-        self.action.target = entity;
+        self.target = entity;
     }
 }
 
 #[derive(Component)]
-#[relationship_target(relationship = CurrentAction<GotoTarget>, linked_spawn)]
+#[relationship_target(relationship = GotoTarget, linked_spawn)]
 pub struct TargetedBy(Vec<Entity>);
 
 #[derive(Error, Debug)]
@@ -67,8 +65,8 @@ pub enum GotoError {
 pub fn finish_goto(
     mut commands: Commands,
     query: Query<
-        (Entity, &CurrentAction<GotoTarget>, &SensorState),
-        Or<(Changed<CurrentAction<GotoTarget>>, Changed<SensorState>)>,
+        (Entity, &GotoTarget, &SensorState),
+        Or<(Changed<GotoTarget>, Changed<SensorState>)>,
     >,
 ) -> Result {
     for (entity, goto_action, sensor_state) in &query {
