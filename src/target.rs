@@ -3,7 +3,6 @@ use bevy_ecs::{
     entity::Entity,
     error::Result,
     query::{Changed, Or},
-    relationship::Relationship,
     system::{Commands, Query},
 };
 use thiserror::Error;
@@ -13,8 +12,10 @@ use crate::{
 };
 
 #[derive(Component)]
+#[relationship(relationship_target = TargetedBy)]
 pub struct GotoTarget {
     pub(crate) next_action: Option<Box<dyn ActionProviderTrait>>,
+    #[relationship]
     pub(crate) target: Entity,
 }
 
@@ -26,25 +27,6 @@ impl GotoTarget {
     #[must_use]
     pub fn next_action(&self) -> Option<&dyn ActionProviderTrait> {
         self.next_action.as_deref()
-    }
-}
-
-impl Relationship for GotoTarget {
-    type RelationshipTarget = TargetedBy;
-
-    fn get(&self) -> Entity {
-        self.target
-    }
-
-    fn from(entity: Entity) -> Self {
-        Self {
-            next_action: None,
-            target: entity,
-        }
-    }
-
-    fn set_risky(&mut self, entity: Entity) {
-        self.target = entity;
     }
 }
 

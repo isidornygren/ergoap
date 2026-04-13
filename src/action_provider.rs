@@ -192,7 +192,7 @@ impl<C> ActionProvider<C> {
 impl<C: Component + Clone> ActionProviderTrait for ActionProvider<C> {
     fn apply(&self, sensor_values: &mut SensorState) {
         for IdContainer { id, value } in &self.effects {
-            sensor_values.insert(*id, *value)
+            sensor_values.insert(*id, *value);
         }
     }
 
