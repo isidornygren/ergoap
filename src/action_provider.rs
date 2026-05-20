@@ -147,7 +147,7 @@ impl<C> ActionProviderBuilder<C> {
 /// #[derive(WorldSensor, Component)]
 /// struct SomeSensor(bool);
 ///
-/// #[derive(Action, Clone)]
+/// #[derive(Clone)]
 /// struct SomeAction;
 ///
 /// let action_provider = ActionProvider::new(SomeAction)
