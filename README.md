@@ -54,7 +54,7 @@ fn update_sensor(mut query: Query<&mut SomeSensor>, world_component: Single<&Wor
 Actions are created using `ActionProvider`s which are generic components.
 
 ```rust
-#[derive(Action, Clone)]
+#[derive(Component, Action, Clone)]
 struct Perform;
 
 let action_provider = ActionProvider::new(Perform)
