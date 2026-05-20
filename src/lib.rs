@@ -1,3 +1,5 @@
+extern crate self as ergoap;
+
 use bevy_app::{App, First, FixedMainScheduleOrder, FixedUpdate, Plugin};
 use bevy_ecs::schedule::{IntoScheduleConfigs, ScheduleLabel};
 use bevy_ecs::world::World;
@@ -22,6 +24,8 @@ mod plan;
 mod sensor_state;
 #[cfg(feature = "target")]
 mod target;
+#[cfg(test)]
+mod test_utils;
 #[cfg(feature = "utility")]
 mod utility;
 mod world_sensor;
