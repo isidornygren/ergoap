@@ -3,7 +3,7 @@ use bevy_ecs::{
     entity::Entity,
     lifecycle::HookContext,
     query::{Changed, Or},
-    system::{Commands, ParallelCommands, Query},
+    system::{Commands, Query},
     world::{DeferredWorld, Ref},
 };
 
