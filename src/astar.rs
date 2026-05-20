@@ -1,6 +1,6 @@
 use bitvec::vec::BitVec;
 
-use crate::{action_provider::ActionProviderTrait, goal::Goal, sensor_state::SensorState};
+use crate::{ActionProvider, goal::Goal, sensor_state::SensorState};
 use std::{
     cmp::Ordering,
     collections::{BinaryHeap, HashSet},
@@ -64,7 +64,7 @@ fn reconstruct_path(nodes: &[Node], goal_index: usize) -> Vec<usize> {
 
 pub fn astar_plan(
     start_state: &SensorState,
-    actions: &Vec<&dyn ActionProviderTrait>,
+    actions: &[ActionProvider],
     goal: &Goal,
 ) -> Option<Vec<usize>> {
     let mut closed_set = HashSet::with_capacity(actions.len());

@@ -8,7 +8,7 @@ use thiserror::Error;
 
 #[cfg(feature = "target")]
 use crate::GotoTarget;
-use crate::{ActionProviderTrait, SensorValue, sensor_state::SensorId};
+use crate::{ActionProvider, SensorValue, sensor_state::SensorId};
 
 #[derive(Error, Debug)]
 pub enum InsertCurrentActionError {
@@ -45,21 +45,19 @@ impl UpdateActionRef for EntityWorldMut<'_> {
 }
 
 pub(crate) trait ActionCommands {
-    fn insert_action(&mut self, action: &dyn ActionProviderTrait);
-    fn insert_current_action(&mut self, action: Box<dyn ActionProviderTrait>);
+    fn insert_action(&mut self, action: ActionProvider);
+    fn insert_current_action(&mut self, action: ActionProvider);
     fn remove_current_action(&mut self);
 }
 
 impl ActionCommands for EntityCommands<'_> {
-    fn insert_action(&mut self, action: &dyn ActionProviderTrait) {
-        let cloned_action = action.clone_box();
-
+    fn insert_action(&mut self, action: ActionProvider) {
         self.queue(move |mut entity_world: EntityWorldMut| {
-            cloned_action.add_to_entity_world(&mut entity_world);
+            action.add_to_entity_world(&mut entity_world);
         });
     }
 
-    fn insert_current_action(&mut self, action: Box<dyn ActionProviderTrait>) {
+    fn insert_current_action(&mut self, action: ActionProvider) {
         #[cfg(feature = "target")]
         if let Some(target) = *action.target() {
             self.queue(move |mut entity_world: EntityWorldMut| -> Result {
@@ -96,10 +94,10 @@ impl ActionCommands for EntityCommands<'_> {
                 Ok(())
             });
         } else {
-            self.insert_action(&*action);
+            self.insert_action(action);
         }
         #[cfg(not(feature = "target"))]
-        self.insert_action(&action);
+        self.insert_action(ction);
     }
 
     fn remove_current_action(&mut self) {

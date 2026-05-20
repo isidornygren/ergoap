@@ -2,13 +2,14 @@
 use std::any::Any;
 use std::any::TypeId;
 
+use bevy_asset::Asset;
 use bevy_ecs::{
-    component::{Component, Immutable, StorageType},
+    component::{Component, ComponentId, Immutable, StorageType},
     error::Result,
     lifecycle::HookContext,
     world::{DeferredWorld, EntityWorldMut},
 };
-use bevy_trait_query::queryable;
+use bevy_reflect::TypePath;
 use bitvec::vec::BitVec;
 
 use crate::{
@@ -20,31 +21,54 @@ use crate::{
 #[cfg(feature = "target")]
 use crate::{TargetValue, WorldSensorValue};
 
-#[queryable]
-pub trait ActionProviderTrait: Send + Sync {
-    fn apply(&self, sensor_values: &mut SensorState);
-    fn apply_to_bitvec(&self, bitvec: &mut BitVec);
-    fn preconditions_met(&self, _sensor_values: &SensorState) -> bool;
-    fn cost(&self) -> usize;
-    fn add_to_entity_world(&self, entity_world: &mut EntityWorldMut);
-    fn clone_box(&self) -> Box<dyn ActionProviderTrait>;
-    #[cfg(feature = "target")]
-    fn target(&self) -> &Option<IdContainer<SensorId, f32>>;
+trait ErasedActionComponent: Send + Sync {
+    fn insert_into_entity_world(&self, entity_world: &mut EntityWorldMut);
+    fn component_id(&self, entity_world: &mut EntityWorldMut) -> Option<ComponentId>;
+    fn clone_box(&self) -> Box<dyn ErasedActionComponent>;
 }
 
-pub fn on_insert_action_provider_builder<C: Clone + Send + Sync + 'static>(
+#[derive(Clone)]
+struct TypedActionComponent<C>(C)
+where
+    C: Component + Clone + Send + Sync + 'static;
+
+impl<C> ErasedActionComponent for TypedActionComponent<C>
+where
+    C: Component + Clone + Send + Sync + 'static,
+{
+    fn insert_into_entity_world(&self, entity_world: &mut EntityWorldMut) {
+        entity_world.insert(self.0.clone());
+    }
+
+    fn component_id(&self, entity_world: &mut EntityWorldMut) -> Option<ComponentId> {
+        entity_world.world_scope(|w| w.component_id::<C>())
+    }
+
+    fn clone_box(&self) -> Box<dyn ErasedActionComponent> {
+        Box::new(self.clone())
+    }
+}
+
+pub fn on_insert_action_provider_builder<C: Clone + Send + Sync + 'static + Component>(
     mut world: DeferredWorld,
     HookContext { entity, .. }: HookContext,
 ) {
+    println!("On insert action provider builder for entity {:?}", entity);
     world
         .commands()
         .entity(entity)
         .queue(|mut entity_world_mut: EntityWorldMut| -> Result {
+            println!("Building action provider for entity");
             if let Some(action_provider_builder) =
                 entity_world_mut.take::<ActionProviderBuilder<C>>()
             {
                 let action_provider = action_provider_builder.build(&mut entity_world_mut)?;
-                entity_world_mut.insert(action_provider);
+
+                entity_world_mut.insert_if_new(ActionProviders(vec![]));
+
+                if let Some(mut action_providers) = entity_world_mut.get_mut::<ActionProviders>() {
+                    action_providers.0.push(action_provider);
+                }
             }
             Ok(())
         });
@@ -92,7 +116,7 @@ impl<C> ActionProviderBuilder<C> {
     }
 }
 
-impl<C: Clone + Send + Sync + 'static> Component for ActionProviderBuilder<C> {
+impl<C: Clone + Send + Sync + 'static + Component> Component for ActionProviderBuilder<C> {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
 
     type Mutability = Immutable;
@@ -109,14 +133,14 @@ impl<C: Clone + Send + Sync + 'static> Component for ActionProviderBuilder<C> {
     }
 }
 
-impl<C> ActionProviderBuilder<C> {
+impl<C: Component + Clone + Send + Sync + 'static> ActionProviderBuilder<C> {
     pub(crate) fn build(
         self,
         world: &mut EntityWorldMut,
-    ) -> Result<ActionProvider<C>, BuildSensorIdError> {
+    ) -> Result<ActionProvider, BuildSensorIdError> {
         Ok(ActionProvider {
             cost: self.cost,
-            action: self.action,
+            action: Box::new(TypedActionComponent(self.action)),
             requirements: self
                 .requirements
                 .into_iter()
@@ -147,7 +171,7 @@ impl<C> ActionProviderBuilder<C> {
 /// #[derive(WorldSensor, Component)]
 /// struct SomeSensor(bool);
 ///
-/// #[derive(Action, Clone)]
+/// #[derive(Component, Clone)]
 /// struct SomeAction;
 ///
 /// let action_provider = ActionProvider::new(SomeAction)
@@ -159,15 +183,16 @@ impl<C> ActionProviderBuilder<C> {
 /// assert_eq!(action_provider.effects, vec![SomeSensor::set(true)]);
 /// assert_eq!(action_provider.cost, 2);
 /// ```
-#[derive(Component, Clone)]
-pub struct ActionProvider<C> {
+///
+#[derive(Asset, TypePath)]
+pub struct ActionProvider {
     /// The action that will spawn in the entity when the planner has chosen this ``ActionProvider``.
-    pub action: C,
+    action: Box<dyn ErasedActionComponent>,
     /// The cost of the action, the higher the cost, the more expensive the action.
     pub cost: usize,
     /// The state requirements for this action to be valid.
     /// If _all_ requirements are not met, the action cannot be selected.
-    pub requirements: Vec<IdContainer<SensorId, Comparison>>,
+    pub requirements: Vec<IdContainer<SensorId, Comparison>>, // SensorIds are per entity, not per world...... So using them in an asset would not work.
     /// The state effects of this action.
     pub effects: Vec<IdContainer<SensorId, SensorValue>>,
     #[cfg(feature = "target")]
@@ -176,8 +201,24 @@ pub struct ActionProvider<C> {
     pub target: Option<IdContainer<SensorId, f32>>,
 }
 
-impl<C> ActionProvider<C> {
-    pub const fn new(action: C) -> ActionProviderBuilder<C> {
+#[derive(Component)]
+pub struct ActionProviders(pub Vec<ActionProvider>);
+
+impl Clone for ActionProvider {
+    fn clone(&self) -> Self {
+        Self {
+            action: self.action.clone_box(),
+            cost: self.cost,
+            requirements: self.requirements.clone(),
+            effects: self.effects.clone(),
+            #[cfg(feature = "target")]
+            target: self.target,
+        }
+    }
+}
+
+impl ActionProvider {
+    pub const fn new<C>(action: C) -> ActionProviderBuilder<C> {
         ActionProviderBuilder {
             action,
             cost: 1,
@@ -187,22 +228,35 @@ impl<C> ActionProvider<C> {
             target: None,
         }
     }
-}
 
-impl<C: Component + Clone> ActionProviderTrait for ActionProvider<C> {
-    fn apply(&self, sensor_values: &mut SensorState) {
+    pub fn from_action_with_cost<C>(action: C, cost: usize) -> Self
+    where
+        C: Component + Clone + Send + Sync + 'static,
+    {
+        Self {
+            action: Box::new(TypedActionComponent(action)),
+            cost,
+            requirements: vec![],
+            effects: vec![],
+            #[cfg(feature = "target")]
+            target: None,
+        }
+    }
+
+    pub fn apply(&self, sensor_values: &mut SensorState) {
         for IdContainer { id, value } in &self.effects {
             sensor_values.insert(*id, *value);
         }
     }
 
-    fn apply_to_bitvec(&self, bitvec: &mut BitVec) {
+    pub fn apply_to_bitvec(&self, bitvec: &mut BitVec) {
         for IdContainer { id, value } in &self.effects {
             bitvec.set(id.0, value.as_bool());
         }
     }
 
-    fn preconditions_met(&self, sensor_values: &SensorState) -> bool {
+    #[must_use]
+    pub fn preconditions_met(&self, sensor_values: &SensorState) -> bool {
         #[cfg(feature = "target")]
         if let Some(target) = &self.target
             && sensor_values
@@ -216,26 +270,24 @@ impl<C: Component + Clone> ActionProviderTrait for ActionProvider<C> {
         })
     }
 
-    fn cost(&self) -> usize {
+    #[must_use]
+    pub const fn cost(&self) -> usize {
         self.cost
     }
 
-    fn add_to_entity_world(&self, entity_world: &mut EntityWorldMut) {
-        if let Some(component_id) = entity_world.world_scope(|w| w.component_id::<C>()) {
+    pub fn add_to_entity_world(&self, entity_world: &mut EntityWorldMut) {
+        if let Some(component_id) = self.action.component_id(entity_world) {
             entity_world.update_action_ref(component_id);
         } else {
             // This should probably not happen, but adding it here as a failsafe if a component is not registered.
             entity_world.remove::<CurrentActionRef>();
         }
-        entity_world.insert(self.action.clone());
-    }
-
-    fn clone_box(&self) -> Box<dyn ActionProviderTrait> {
-        Box::new(self.clone())
+        self.action.insert_into_entity_world(entity_world);
     }
 
     #[cfg(feature = "target")]
-    fn target(&self) -> &Option<IdContainer<SensorId, f32>> {
+    #[must_use]
+    pub const fn target(&self) -> &Option<IdContainer<SensorId, f32>> {
         &self.target
     }
 }

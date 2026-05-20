@@ -115,21 +115,6 @@ pub fn derive_world_sensor(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-#[proc_macro_derive(Action)]
-pub fn derive_action(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let name = &input.ident;
-
-    let expanded = generate_trait_registration(
-        name,
-        quote! {
-            world.register_component_as::<dyn ActionProviderTrait, ActionProvider<#name>>();
-        },
-    );
-
-    TokenStream::from(expanded)
-}
-
 #[proc_macro_derive(Scorer)]
 pub fn derive_scorer(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

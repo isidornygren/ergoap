@@ -48,18 +48,18 @@ impl SetSensorValue<TargetValue> for LampTarget {
 #[derive(Component, WorldSensor, Default)]
 struct SleepTarget(Option<TargetValue>);
 
-#[derive(Clone, Component, Action)]
+#[derive(Clone, Component)]
 struct ToggleLampAction {
     to: bool,
 }
 
-#[derive(Clone, Component, Action)]
+#[derive(Clone, Component)]
 struct EatFoodAction;
 
-#[derive(Clone, Component, Action)]
+#[derive(Clone, Component)]
 struct RunAway;
 
-#[derive(Clone, Component, Action)]
+#[derive(Clone, Component)]
 struct Idle;
 
 #[derive(Component)]

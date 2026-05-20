@@ -26,7 +26,7 @@ mod target;
 mod utility;
 mod world_sensor;
 
-pub use crate::action_provider::{ActionProvider, ActionProviderBuilder, ActionProviderTrait};
+pub use crate::action_provider::{ActionProvider, ActionProviderBuilder};
 pub use crate::comparison::Comparison;
 pub use crate::goal::Goal;
 pub use crate::otherwise::Otherwise;
@@ -82,7 +82,7 @@ pub mod prelude {
     };
     pub use crate::{
         ErgoapPlugin, Planning, SensorUpdate,
-        action_provider::{ActionProvider, ActionProviderBuilder, ActionProviderTrait},
+        action_provider::{ActionProvider, ActionProviderBuilder, ActionProviders},
         auto_register::{AutomaticTraitRegistrations, RegisterComponentAs},
         comparison::Comparison,
         goal::Goal,

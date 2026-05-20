@@ -7,14 +7,12 @@ use bevy_ecs::{
 };
 use thiserror::Error;
 
-use crate::{
-    ActionProviderTrait, SensorState, current_action::ActionCommands, sensor_state::SensorId,
-};
+use crate::{ActionProvider, SensorState, current_action::ActionCommands, sensor_state::SensorId};
 
 #[derive(Component)]
 #[relationship(relationship_target = TargetedBy)]
 pub struct GotoTarget {
-    pub(crate) next_action: Option<Box<dyn ActionProviderTrait>>,
+    pub(crate) next_action: Option<ActionProvider>,
     #[relationship]
     pub(crate) target: Entity,
 }
@@ -25,8 +23,8 @@ impl GotoTarget {
         self.target
     }
     #[must_use]
-    pub fn next_action(&self) -> Option<&dyn ActionProviderTrait> {
-        self.next_action.as_deref()
+    pub fn next_action(&self) -> Option<&ActionProvider> {
+        self.next_action.as_ref()
     }
 }
 
@@ -56,7 +54,6 @@ pub fn finish_goto(
             .next_action()
             .ok_or(GotoError::NextActionNotFound)?
             .target()
-            .as_ref()
             .ok_or(GotoError::TargetNotFound)?;
         let sensor_state = sensor_state
             .get(&target.id)
@@ -66,7 +63,8 @@ pub fn finish_goto(
             commands.entity(entity).insert_action(
                 goto_action
                     .next_action()
-                    .ok_or(GotoError::NextActionNotFound)?,
+                    .ok_or(GotoError::NextActionNotFound)?
+                    .clone(),
             );
         }
     }

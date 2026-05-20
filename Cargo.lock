@@ -2355,6 +2355,7 @@ dependencies = [
  "bevy",
  "bevy-trait-query",
  "bevy_app",
+ "bevy_asset",
  "bevy_ecs",
  "bevy_reflect",
  "bitvec",

@@ -1,23 +1,16 @@
 use bevy_ecs::component::Component;
 
-use crate::{ActionProvider, ActionProviderTrait};
+use crate::ActionProvider;
 
 #[derive(Component)]
 pub struct Otherwise {
-    pub(crate) action: Box<dyn ActionProviderTrait>,
+    pub(crate) action: ActionProvider,
 }
 
 impl Otherwise {
-    pub fn new<T: Component + Clone>(action: T) -> Self {
+    pub fn new<T: Component + Clone + Send + Sync + 'static>(action: T) -> Self {
         Self {
-            action: Box::new(ActionProvider {
-                action,
-                cost: 0,
-                requirements: vec![],
-                effects: vec![],
-                #[cfg(feature = "target")]
-                target: None,
-            }),
+            action: ActionProvider::from_action_with_cost(action, 0),
         }
     }
 }

@@ -5,7 +5,7 @@ use std::hint::black_box;
 
 mod helpers;
 
-#[derive(Action, Component, Clone)]
+#[derive(Component, Clone)]
 struct SomeAction;
 
 fn spawn_action_provider(mut commands: Commands) {
@@ -36,7 +36,7 @@ macro_rules! sensor_benchmark {
         });
 
         seq_macro::seq!(N in 0..$count {
-            #[derive(Action, Component, Clone)]
+            #[derive(Component, Clone)]
             struct Action~N;
         });
 
