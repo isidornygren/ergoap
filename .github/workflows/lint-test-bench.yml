@@ -64,7 +64,7 @@ jobs:
       - name: Install cargo-criterion
         run: cargo install cargo-criterion
       - name: Run benchmarks
-        run: cargo criterion --all-features --output-format bencher | tee output.txt
+        run: cargo criterion --all-features --output-format bencher 2>&1 | tee output.txt
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
         with:
