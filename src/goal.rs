@@ -21,15 +21,13 @@ pub fn on_insert_goal_builder(
     }: HookContext,
 ) {
     if let Some(goal_builder) = world.get::<GoalBuilder>(entity).cloned() {
-        world
-            .commands()
-            .entity(entity)
-            .queue(move |mut entity_world: EntityWorldMut| {
-                let goal = goal_builder
-                    .build(&mut entity_world)
-                    .expect("Could not build goal");
+        world.commands().entity(entity).queue(
+            move |mut entity_world: EntityWorldMut| -> Result<(), BuildSensorIdError> {
+                let goal = goal_builder.build(&mut entity_world)?;
                 entity_world.insert(goal).remove_by_id(component_id);
-            });
+                Ok(())
+            },
+        );
     }
 }
 
@@ -83,5 +81,80 @@ impl Goal {
                 sensor_state.get(id).is_none_or(|v| !value.compare(*v))
             })
             .count()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::prelude::*;
+    use crate::test_utils::*;
+
+    #[test]
+    fn goal_builder_produces_goal_on_spawn() {
+        let mut test_app = setup_test_app();
+        let entity = test_app
+            .world_mut()
+            .spawn((
+                SensorState::default(),
+                TestSensor(true),
+                Goal::from_requirement(TestSensor::is_true()),
+            ))
+            .id();
+
+        let entity = test_app.world().entity(entity);
+        let components = entity.archetype().components();
+
+        let expected = [
+            test_app.get_component_id::<SensorState>(),
+            test_app.get_component_id::<TestSensor>(),
+            test_app.get_component_id::<Goal>(),
+        ];
+
+        assert_eq!(components.len(), expected.len());
+        for id in &expected {
+            assert!(components.contains(id), "Missing component {id:?}");
+        }
+    }
+
+    #[test]
+    fn goal_is_satisfied() {
+        let mut test_app = setup_test_app();
+        let entity = test_app
+            .world_mut()
+            .spawn((
+                SensorState::default(),
+                TestSensor(true),
+                Goal::from_requirement(TestSensor::is_true()),
+            ))
+            .id();
+
+        test_app.world_mut().run_schedule(Planning);
+
+        let entity = test_app.world().entity(entity);
+        let goal = entity.get::<Goal>().unwrap();
+        let sensor_state = entity.get::<SensorState>().unwrap();
+
+        assert!(goal.is_satisfied(sensor_state));
+    }
+
+    #[test]
+    fn goal_is_not_satisfied() {
+        let mut test_app = setup_test_app();
+        let entity = test_app
+            .world_mut()
+            .spawn((
+                SensorState::default(),
+                TestSensor(false),
+                Goal::from_requirement(TestSensor::is_true()),
+            ))
+            .id();
+
+        test_app.world_mut().run_schedule(Planning);
+
+        let entity = test_app.world().entity(entity);
+        let goal = entity.get::<Goal>().unwrap();
+        let sensor_state = entity.get::<SensorState>().unwrap();
+
+        assert!(!goal.is_satisfied(sensor_state));
     }
 }

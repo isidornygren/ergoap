@@ -2,6 +2,26 @@ use bevy::{ecs::component::Mutable, prelude::*};
 use bevy_ecs::query::QueryFilter;
 use ergoap::prelude::*;
 
+struct Lcg {
+    state: u32,
+}
+
+impl Lcg {
+    const fn next(&mut self) -> u32 {
+        self.state = self
+            .state
+            .wrapping_mul(1_664_525)
+            .wrapping_add(1_013_904_223);
+        self.state
+    }
+
+    fn range_f32(&mut self, min: f32, max: f32) -> f32 {
+        #[allow(clippy::cast_precision_loss)]
+        let normalized = self.next() as f32 / u32::MAX as f32;
+        normalized.mul_add(max - min, min)
+    }
+}
+
 trait SetSensorValue<T> {
     fn set_value(&mut self, value: T);
     fn clear(&mut self);
@@ -28,19 +48,22 @@ impl SetSensorValue<TargetValue> for LampTarget {
 #[derive(Component, WorldSensor, Default)]
 struct SleepTarget(Option<TargetValue>);
 
-#[derive(Clone, Action)]
+#[derive(Clone, Component, Action)]
 struct ToggleLampAction {
     to: bool,
 }
 
-#[derive(Clone, Action)]
+#[derive(Clone, Component, Action)]
 struct EatFoodAction;
 
-#[derive(Clone, Action)]
+#[derive(Clone, Component, Action)]
 struct RunAway;
 
-#[derive(Clone, Action)]
+#[derive(Clone, Component, Action)]
 struct Idle;
+
+#[derive(Component)]
+struct IdlePath(Vec3);
 
 #[derive(Component)]
 struct Lamp {
@@ -96,8 +119,11 @@ struct IsHungry(bool);
 #[derive(Scorer, Default)]
 struct HungryScorer(f32);
 
+#[derive(Scorer, Default)]
+struct EnemyScorer(f32);
+
 fn toggle_sensor(
-    query: Query<&CurrentAction<ToggleLampAction>>,
+    query: Query<&ToggleLampAction>,
     mut lamp: Single<(&mut Lamp, &mut MeshMaterial2d<ColorMaterial>)>,
 ) {
     for current_action in query {
@@ -155,7 +181,7 @@ fn update_closest_target<
         {
             target_sensor.set_value(TargetValue {
                 entity: target,
-                is_close: distance < 0.1,
+                distance,
             });
         } else {
             target_sensor.clear();
@@ -164,7 +190,7 @@ fn update_closest_target<
 }
 
 fn eat_food(
-    mut query: Query<(&FoodTarget, &mut Hunger), With<CurrentAction<EatFoodAction>>>,
+    mut query: Query<(&FoodTarget, &mut Hunger), With<EatFoodAction>>,
     mut commands: Commands,
 ) {
     for (food_target, mut weariness) in &mut query {
@@ -176,7 +202,7 @@ fn eat_food(
 }
 
 fn goto(
-    mut query: Query<(Entity, &CurrentAction<GotoTarget>)>,
+    mut query: Query<(Entity, &GotoTarget)>,
     mut transforms: Query<&mut Transform>,
     time: Res<Time<Virtual>>,
 ) {
@@ -202,18 +228,52 @@ fn goto(
     }
 }
 
-fn idle(mut query: Query<&mut Transform, With<CurrentAction<Idle>>>, time: Res<Time<Virtual>>) {
-    for mut transform in &mut query {
+fn idle(
+    mut commands: Commands,
+
+    mut query: Query<(Entity, &mut Transform, &IdlePath), With<Idle>>,
+    time: Res<Time<Virtual>>,
+) {
+    for (entity, mut transform, idle_path) in &mut query {
+        let direction = idle_path.0 - transform.translation;
+        let distance = direction.length();
+
         let walk_speed = 50.0;
 
-        let movement = Vec3::new(1.0, 0.0, 0.0) * walk_speed * time.delta_secs();
+        if distance >= 0.1 {
+            let movement = direction.normalize() * walk_speed * time.delta_secs();
 
-        transform.translation += movement;
+            if movement.length() < distance {
+                transform.translation += movement;
+            } else {
+                transform.translation = idle_path.0;
+                commands.entity(entity).remove::<IdlePath>();
+            }
+        }
+    }
+}
+
+fn create_idle_path(
+    mut commands: Commands,
+    mut query: Query<Entity, (With<Idle>, Without<IdlePath>)>,
+    time: Res<Time<Virtual>>,
+) {
+    let mut rng = Lcg {
+        #[allow(clippy::cast_possible_truncation)]
+        state: time.elapsed().as_nanos() as u32,
+    };
+    for entity in &mut query {
+        let x = rng.range_f32(-300.0, 300.0);
+        let y = rng.range_f32(-300.0, 300.0);
+
+        commands
+            .entity(entity)
+            .insert(IdlePath(Vec3::new(x, y, 0.)));
     }
 }
 
 fn run_away<Target: Component + WorldSensorValue<Option<TargetValue>>>(
-    mut query: Query<(Entity, &Target), With<CurrentAction<RunAway>>>,
+    mut query: Query<(Entity, &Target), With<RunAway>>,
     mut transforms: Query<&mut Transform>,
     time: Res<Time<Virtual>>,
 ) {
@@ -245,6 +305,24 @@ fn sensor_bundle() -> impl Bundle {
     )
 }
 
+fn update_hunger_scorer(mut query: Query<(&mut GoalProvider<HungryScorer>, &Hunger)>) {
+    for (mut scorer, value) in &mut query {
+        scorer.0 = (value.0 / 10.).min(0.8);
+    }
+}
+
+fn update_enemy_scorer(mut query: Query<(&mut GoalProvider<EnemyScorer>, &EnemyTarget)>) {
+    for (mut scorer, enemy_target) in &mut query {
+        scorer.0 = enemy_target.0.map_or(0., |value| {
+            if value.distance < 0.1 || scorer.0 > 0. {
+                1.
+            } else {
+                0.
+            }
+        });
+    }
+}
+
 fn actor_bundle(
     lamp_value: bool,
     mesh: Handle<Mesh>,
@@ -252,23 +330,20 @@ fn actor_bundle(
     position: Vec3,
 ) -> impl Bundle {
     (
-        SensorState::default(),
-        Goal::from_requirement(LampSensor::equal(lamp_value)),
         ActionProvider::new(RunAway)
-            .with_requirement(EnemyTarget::is_some())
-            .with_effect(EnemyTarget::set(None)),
+            .with_effect(EnemyTarget::set(None))
+            .with_cost(2),
         ActionProvider::new(ToggleLampAction { to: lamp_value })
             .with_effect(LampSensor::set(lamp_value))
             .with_requirement(IsHungry::is_false())
             .with_requirement(LampSensor::equal(!lamp_value))
-            .with_requirement(EnemyTarget::is_none())
-            .with_target::<LampTarget>(),
+            .with_target::<LampTarget>(0.1),
         ActionProvider::new(EatFoodAction)
             .with_effect(IsHungry::set(false))
             .with_requirement(IsHungry::is_true())
-            .with_requirement(EnemyTarget::is_none())
-            .with_target::<FoodTarget>(),
-        GoalProvider::new(HungryScorer::default()).with_requirement(LampSensor::equal(lamp_value)),
+            .with_target::<FoodTarget>(0.1),
+        GoalProvider::new(HungryScorer::default()).with_requirement(IsHungry::is_false()),
+        GoalProvider::new(EnemyScorer::default()).with_requirement(EnemyTarget::is_none()),
         Otherwise::new(Idle),
         Picker::highest_scorer(),
         Transform::from_translation(position),
@@ -281,28 +356,40 @@ fn spawn_actors(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    time: Res<Time<Virtual>>,
 ) {
+    let mut rng = Lcg {
+        #[allow(clippy::cast_possible_truncation)]
+        state: time.elapsed().as_nanos() as u32,
+    };
     let mesh = meshes.add(Circle::new(10.0));
-    commands.spawn((
-        sensor_bundle(),
-        actor_bundle(
-            false,
-            mesh.clone(),
-            materials.add(Color::linear_rgb(1.0, 0.0, 0.0)),
-            Vec3::new(100., 0., 1.),
-        ),
-        RedTeam,
-    ));
-    commands.spawn((
-        sensor_bundle(),
-        actor_bundle(
-            true,
-            mesh,
-            materials.add(Color::linear_rgb(0.0, 1.0, 0.0)),
-            Vec3::new(-100., 0., 1.),
-        ),
-        BlueTeam,
-    ));
+
+    for _ in 0..10 {
+        let x = rng.range_f32(-300.0, 300.0);
+        let y = rng.range_f32(-300.0, 300.0);
+        commands.spawn((
+            sensor_bundle(),
+            actor_bundle(
+                false,
+                mesh.clone(),
+                materials.add(Color::linear_rgb(1.0, 0.0, 0.0)),
+                Vec3::new(x, y, 0.),
+            ),
+            RedTeam,
+        ));
+        let x = rng.range_f32(-300.0, 300.0);
+        let y = rng.range_f32(-300.0, 300.0);
+        commands.spawn((
+            sensor_bundle(),
+            actor_bundle(
+                true,
+                mesh.clone(),
+                materials.add(Color::linear_rgb(0.0, 1.0, 0.0)),
+                Vec3::new(x, y, 0.),
+            ),
+            BlueTeam,
+        ));
+    }
 }
 
 fn spawn_lamp(
@@ -327,26 +414,6 @@ fn spawn_lamp(
 #[derive(Resource)]
 struct FoodSpawnTimer {
     timer: Timer,
-}
-
-struct Lcg {
-    state: u32,
-}
-
-impl Lcg {
-    const fn next(&mut self) -> u32 {
-        self.state = self
-            .state
-            .wrapping_mul(1_664_525)
-            .wrapping_add(1_013_904_223);
-        self.state
-    }
-
-    fn range_f32(&mut self, min: f32, max: f32) -> f32 {
-        #[allow(clippy::cast_precision_loss)]
-        let normalized = self.next() as f32 / u32::MAX as f32;
-        normalized.mul_add(max - min, min)
-    }
 }
 
 fn spawn_food(
@@ -383,16 +450,18 @@ pub fn main() {
 
     app.add_plugins((DefaultPlugins, ErgoapPlugin))
         .insert_resource(FoodSpawnTimer {
-            timer: Timer::from_seconds(5.0, TimerMode::Repeating),
+            timer: Timer::from_seconds(1.0, TimerMode::Repeating),
         })
         .add_systems(Startup, (setup, spawn_actors, spawn_lamp))
         .add_systems(Update, (goto, idle, run_away::<EnemyTarget>, spawn_food))
-        .add_systems(FixedUpdate, (toggle_sensor, eat_food))
+        .add_systems(FixedUpdate, (toggle_sensor, eat_food, create_idle_path))
         .add_systems(
             SensorUpdate,
             (
                 update_hunger,
                 update_lamp_sensor,
+                update_hunger_scorer,
+                update_enemy_scorer,
                 update_closest_target::<LampTarget, With<Lamp>, ()>,
                 update_closest_target::<FoodTarget, With<Food>, ()>,
                 update_closest_target::<EnemyTarget, With<BlueTeam>, With<RedTeam>>,

@@ -1,3 +1,5 @@
+extern crate self as ergoap;
+
 use bevy_app::{App, First, FixedMainScheduleOrder, FixedUpdate, Plugin};
 use bevy_ecs::schedule::{IntoScheduleConfigs, ScheduleLabel};
 use bevy_ecs::world::World;
@@ -15,7 +17,6 @@ mod astar;
 mod auto_register;
 mod comparison;
 mod current_action;
-mod effect;
 mod goal;
 mod id_container;
 mod otherwise;
@@ -23,13 +24,14 @@ mod plan;
 mod sensor_state;
 #[cfg(feature = "target")]
 mod target;
+#[cfg(test)]
+mod test_utils;
 #[cfg(feature = "utility")]
 mod utility;
 mod world_sensor;
 
 pub use crate::action_provider::{ActionProvider, ActionProviderBuilder, ActionProviderTrait};
 pub use crate::comparison::Comparison;
-pub use crate::current_action::CurrentAction;
 pub use crate::goal::Goal;
 pub use crate::otherwise::Otherwise;
 pub use crate::sensor_state::SensorState;
@@ -87,7 +89,6 @@ pub mod prelude {
         action_provider::{ActionProvider, ActionProviderBuilder, ActionProviderTrait},
         auto_register::{AutomaticTraitRegistrations, RegisterComponentAs},
         comparison::Comparison,
-        current_action::CurrentAction,
         goal::Goal,
         otherwise::Otherwise,
         sensor_state::SensorState,

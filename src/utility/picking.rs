@@ -67,12 +67,11 @@ impl Picker {
 
 pub fn picking_system(
     mut commands: Commands,
-    query: Query<(Entity, &Picker, &dyn GoalProviderTrait, &SensorState)>,
+    query: Query<(Entity, &Picker, &dyn GoalProviderTrait)>,
 ) {
-    for (entity, current_picker, goal_providers, sensor_state) in query.iter() {
-        let mut viable_goals = goal_providers
-            .iter()
-            .filter(|goal_provider| !goal_provider.goal().is_satisfied(sensor_state));
+    for (entity, current_picker, goal_providers) in query.iter() {
+        let mut viable_goals = goal_providers.iter();
+
         if let Some(next_goal) = current_picker.pick(&mut viable_goals) {
             commands.entity(entity).insert(next_goal);
         }

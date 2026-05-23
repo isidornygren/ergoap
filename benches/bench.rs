@@ -5,14 +5,11 @@ use std::hint::black_box;
 
 mod helpers;
 
-#[derive(Action, Clone)]
+#[derive(Action, Component, Clone)]
 struct SomeAction;
 
 fn spawn_action_provider(mut commands: Commands) {
-    commands.spawn((
-        SensorState::default(),
-        ActionProvider::new(black_box(SomeAction)),
-    ));
+    commands.spawn(ActionProvider::new(black_box(SomeAction)));
 }
 
 fn bench_spawn_action_provider(c: &mut Criterion) {
@@ -39,7 +36,7 @@ macro_rules! sensor_benchmark {
         });
 
         seq_macro::seq!(N in 0..$count {
-            #[derive(Action, Clone)]
+            #[derive(Action, Component, Clone)]
             struct Action~N;
         });
 
@@ -47,7 +44,7 @@ macro_rules! sensor_benchmark {
             seq_macro::seq!(N in 0..$count {
                 app.add_systems(
                     Update,
-                    |mut query: Query<&mut Sensor~N, With<CurrentAction<Action~N>>>| {
+                    |mut query: Query<&mut Sensor~N, With<Action~N>>| {
                         for mut sensor in query.iter_mut() {
                             sensor.0 = true;
                         }
@@ -64,11 +61,10 @@ macro_rules! sensor_benchmark {
                 prev_values.push(Sensor~N::is_true());
                 entity_commands.insert(Sensor~N(false));
             });
-            entity_commands.insert((
-                SensorState::default(),
+            entity_commands.insert(
                 ActionProvider::new(black_box(Action0))
                     .with_effect(Sensor0::set(true))
-            ));
+            );
             seq_macro::seq!(N in 1..$count {
                 entity_commands.insert(
                     ActionProvider::new(black_box(Action~N))

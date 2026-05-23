@@ -8,7 +8,7 @@ pub struct Otherwise {
 }
 
 impl Otherwise {
-    pub fn new<T: 'static + Clone + Send + Sync>(action: T) -> Self {
+    pub fn new<T: Component + Clone>(action: T) -> Self {
         Self {
             action: Box::new(ActionProvider {
                 action,
