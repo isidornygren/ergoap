@@ -1,0 +1,77 @@
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+name: Lint, Test & Bench
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUSTFLAGS: "-Dwarnings"
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Run cargo test
+        run: cargo test --all-features
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          components: clippy
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features
+
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          components: rustfmt
+      - name: Run cargo fmt
+        run: cargo fmt --all -- --check
+
+  bench:
+    name: Benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      deployments: write
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Install cargo-criterion
+        run: cargo install cargo-criterion
+      - name: Run benchmarks
+        run: cargo criterion --all-features --output-format bencher 2>&1 | tee output.txt
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: "cargo"
+          output-file-path: output.txt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: false
+          alert-threshold: "200%"
+          comment-on-alert: true
+          summary-always: true
